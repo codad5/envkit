@@ -1,0 +1,16 @@
+{
+  "name": "@envkit/example-basic",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "env:setup": "envkit setup",
+    "env:validate": "envkit validate",
+    "env:generate": "envkit generate",
+    "env:diff": "envkit diff"
+  },
+  "dependencies": {
+    "@envkit/core": "workspace:*",
+    "envkit": "workspace:*"
+  }
+}

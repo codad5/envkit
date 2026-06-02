@@ -1,0 +1,19 @@
+{
+  "name": "envkit-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "rimraf": "^6.1.3",
+    "tsup": "^8.5.1",
+    "turbo": "^2.9.16",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
