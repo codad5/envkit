@@ -1,4 +1,5 @@
-import { loadRawEnv, validateEnv } from '@envkit/core'
+import { parseEnvFile, loadRawEnv, validateEnv } from '@envkit/core'
+import { resolve } from 'node:path'
 import type { LoadedConfig } from '../config-loader.js'
 import type { EnvFieldDef } from '@envkit/core'
 import { fmt } from '../utils/format.js'
@@ -6,28 +7,42 @@ import { fmt } from '../utils/format.js'
 export async function runDiff(loaded: LoadedConfig): Promise<void> {
   const { instance } = loaded
   const schema = instance.schema as Record<string, EnvFieldDef<string>>
-  const raw = loadRawEnv(instance.source)
+  const source = instance.source
+
+  // For "extra" detection, always read only from the .env file.
+  // Using process.env would flood output with system variables.
+  const fileRaw: Record<string, string> =
+    source.type !== 'process'
+      ? parseEnvFile(resolve(process.cwd(), source.path ?? '.env'))
+      : {}
+
+  // For missing/invalid checks use the full source (file + process.env overrides)
+  // so that vars injected via the environment (CI, containers) are respected.
+  const fullRaw = loadRawEnv(source)
 
   const schemaKeys = new Set(Object.keys(schema))
-  const fileKeys = new Set(Object.keys(raw))
+  const fileKeys = new Set(Object.keys(fileRaw))
 
-  // Missing required vars
+  // Missing: required vars absent from both the file AND the full source
   const missing: string[] = []
   for (const [key, field] of Object.entries(schema)) {
-    if ((field as any).required && !fileKeys.has(key) && (field as any).default === undefined) {
+    const f = field as any
+    if (f.required && fullRaw[key] === undefined && f.default === undefined) {
       missing.push(key)
     }
   }
 
-  // Extra vars in file but not in schema
+  // Extra: keys in the .env file that are not declared in the schema
   const extra: string[] = []
   for (const key of fileKeys) {
     if (!schemaKeys.has(key)) extra.push(key)
   }
 
-  // Invalid vars
-  const validationResult = validateEnv(schema, raw)
-  const invalid = validationResult.errors.filter((e) => fileKeys.has(e.key))
+  // Invalid: schema keys whose value (from full source) fails validation
+  const validationResult = validateEnv(schema, fullRaw)
+  const invalid = validationResult.errors.filter(
+    (e) => fullRaw[e.key] !== undefined,
+  )
 
   console.log()
 

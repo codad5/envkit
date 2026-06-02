@@ -11,9 +11,11 @@ export type {
   PlainEnvFieldDef,
   ZodEnvFieldDef,
   ZodLike,
+  ComputedFieldDef,
   EnvKitConfig,
   EnvKitInstance,
   InferEnvSchema,
+  InferComputedSchema,
   ValidationResult,
   ValidationError,
 } from './types.js'

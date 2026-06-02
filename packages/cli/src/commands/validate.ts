@@ -1,22 +1,30 @@
-import { loadRawEnv, validateEnv } from '@envkit/core'
+import { parseEnvFile, loadRawEnv, validateEnv } from '@envkit/core'
+import { resolve } from 'node:path'
 import type { LoadedConfig } from '../config-loader.js'
 import { fmt, truncate } from '../utils/format.js'
 
 export async function runValidate(loaded: LoadedConfig): Promise<boolean> {
   const { instance, configPath } = loaded
+  const source = instance.source
 
   console.log()
   console.log(fmt.dim(`  Validating .env against ${configPath}...`))
   console.log()
 
-  const raw = loadRawEnv(instance.source)
-  const result = validateEnv(
-    instance.schema as Record<string, any>,
-    raw,
-  )
+  // Full source for validation (respects process.env overrides in combined/process mode)
+  const fullRaw = loadRawEnv(source)
+
+  // File-only raw values — used to annotate which values came from the file vs env
+  const fileRaw: Record<string, string> =
+    source.type !== 'process'
+      ? parseEnvFile(resolve(process.cwd(), source.path ?? '.env'))
+      : fullRaw
+
+  const result = validateEnv(instance.schema as Record<string, any>, fullRaw)
 
   for (const [key, field] of Object.entries(instance.schema)) {
-    const rawValue = raw[key]
+    const rawValue = fullRaw[key]
+    const fromEnv = rawValue !== undefined && fileRaw[key] === undefined
     const err = result.errors.find((e) => e.key === key)
 
     if (err) {
@@ -25,7 +33,7 @@ export async function runValidate(loaded: LoadedConfig): Promise<boolean> {
       const displayValue = (field as any).secret
         ? fmt.secret()
         : rawValue !== undefined
-        ? truncate(rawValue)
+        ? truncate(rawValue) + (fromEnv ? fmt.dim(' (env)') : '')
         : fmt.dim('(default)')
       console.log(`  ${fmt.success(key.padEnd(20))} ${displayValue}`)
     }

@@ -3,9 +3,9 @@ import { defineEnv } from '@envkit/core'
 export default defineEnv({
   source: { type: 'combined', path: '.env' },
   envGroups: [
-    { slug: 'server', name: 'Server Configuration', description: 'Core server settings' },
-    { slug: 'database', name: 'Database', description: 'Database connection settings' },
-    { slug: 'auth', name: 'Authentication', description: 'Auth secrets and settings' },
+    { slug: 'server',   name: 'Server Configuration', description: 'Core server settings' },
+    { slug: 'database', name: 'Database',              description: 'Database connection settings' },
+    { slug: 'auth',     name: 'Authentication',        description: 'Auth secrets and settings' },
   ],
   envSchema: {
     NODE_ENV: {
@@ -55,6 +55,16 @@ export default defineEnv({
       description: 'Feature flag for experimental feature X',
       group: 'server',
       required: false,
+    },
+  },
+  computed: {
+    APP_URL: {
+      description: 'Full application URL derived from HOST and PORT',
+      compute: ({ env }) => `${env.HOST}:${env.PORT}`,
+    },
+    IS_PRODUCTION: {
+      description: 'True when running in production mode',
+      compute: ({ env }) => env.NODE_ENV === 'production',
     },
   },
 })

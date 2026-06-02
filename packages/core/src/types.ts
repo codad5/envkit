@@ -80,6 +80,22 @@ export type EnvFieldDef<GroupSlug extends string = string> =
   | PlainEnvFieldDef<GroupSlug>
   | ZodEnvFieldDef<GroupSlug>
 
+// ── Computed field definitions ────────────────────────────────────────────────
+
+/**
+ * A derived variable computed from the already-validated env at load() time.
+ * Not read from .env or process.env — purely a runtime convenience.
+ * Not included in generate / validate / diff output.
+ */
+export interface ComputedFieldDef<TEnv extends Record<string, unknown> = Record<string, unknown>> {
+  description?: string
+  compute: (ctx: { env: TEnv }) => unknown
+}
+
+export type InferComputedSchema<C extends Record<string, ComputedFieldDef<any>>> = {
+  readonly [K in keyof C]: ReturnType<C[K]['compute']>
+}
+
 // ── Inference helpers ────────────────────────────────────────────────────────
 
 type InferRawType<F extends EnvFieldDef<any>> =
@@ -106,22 +122,27 @@ export type InferEnvSchema<S extends Record<string, EnvFieldDef<any>>> = {
 
 export interface EnvKitConfig<
   G extends EnvGroupDef[],
-  S extends Record<string, EnvFieldDef<G[number]['slug']>>
+  S extends Record<string, EnvFieldDef<G[number]['slug']>>,
+  C extends Record<string, ComputedFieldDef<any>> = Record<never, ComputedFieldDef<any>>
 > {
   source?: SourceConfig
   envGroups?: G
   envSchema: S
+  /** Derived variables computed from the validated env at load() time. */
+  computed?: C
 }
 
 export interface EnvKitInstance<
   G extends EnvGroupDef[],
-  S extends Record<string, EnvFieldDef<G[number]['slug']>>
+  S extends Record<string, EnvFieldDef<G[number]['slug']>>,
+  C extends Record<string, ComputedFieldDef<any>> = Record<never, ComputedFieldDef<any>>
 > {
   readonly schema: S
   readonly groups: G
   readonly source: SourceConfig
-  /** Validates all variables and returns the typed env object. Throws on error. */
-  load(): InferEnvSchema<S>
+  readonly computed: C
+  /** Validates all variables, runs computed fields, returns the fully typed env. Throws on error. */
+  load(): InferEnvSchema<S> & InferComputedSchema<C>
 }
 
 // ── Validation result ─────────────────────────────────────────────────────────

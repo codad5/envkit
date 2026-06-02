@@ -1,4 +1,5 @@
-import { input, password, select, confirm } from '@inquirer/prompts'
+import { createInterface } from 'node:readline'
+import { password, select, confirm } from '@inquirer/prompts'
 import chalk from 'chalk'
 import type { EnvFieldDef, PlainEnvFieldDef } from '@envkit/core'
 
@@ -54,42 +55,68 @@ export async function promptForField(
     return { value: String(val), skipped: false }
   }
 
-  // Secret → masked input
+  // Secret → masked password input (inquirer handles masking)
   if (plain.secret) {
-    const hints = buildHints(plain)
+    const hints = buildHints(plain, { omitExample: true })
     if (hints) console.log(`  ${chalk.dim(hints)}`)
 
     const val = await password({
-      message: `  ${key}`,
+      message: `  ${chalk.cyan('>')} Enter value`,
       mask: '*',
     })
 
+    console.log(`  ${chalk.green('✔')}  ${chalk.bold(key)}: ${chalk.dim('[hidden]')}`)
     if (!val && !plain.required) return { value: null, skipped: true }
     return { value: val, skipped: false }
   }
 
-  // Default: text input
+  // Plain text — use readline so the answer lands on its own line
   const hints = buildHints(plain)
   if (hints) console.log(`  ${chalk.dim(hints)}`)
 
   const defaultVal = plain.default !== undefined ? String(plain.default) : undefined
-  const exampleHint = plain.example ? ` e.g. ${plain.example}` : ''
+  if (defaultVal !== undefined) {
+    console.log(`  ${chalk.dim(`default: ${defaultVal}`)}`)
+  }
+  if (plain.example) {
+    console.log(`  ${chalk.dim(`e.g. ${plain.example}`)}`)
+  }
 
-  const val = await input({
-    message: `  ${key}${exampleHint}`,
-    default: defaultVal,
-  })
+  const val = await readLine(`  ${chalk.cyan('>')} `, defaultVal)
 
-  if (!val && !plain.required) return { value: null, skipped: true }
-  return { value: val || null, skipped: !val }
+  const finalVal = val.trim() || defaultVal || null
+
+  if (finalVal) {
+    console.log(`  ${chalk.green('✔')}  ${chalk.bold(key)}: ${finalVal}`)
+  } else {
+    console.log(`  ${chalk.green('✔')}  ${chalk.bold(key)}: ${chalk.dim('(skipped)')}`)
+  }
+
+  if (!finalVal && plain.required) return { value: null, skipped: false }
+  if (!finalVal) return { value: null, skipped: true }
+  return { value: finalVal, skipped: false }
 }
 
-function buildHints(field: PlainEnvFieldDef<string>): string {
+/** Read a single line from stdin with a prompt, resolving to the raw input (or defaultVal on empty) */
+function readLine(prompt: string, defaultVal?: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true })
+    rl.question(prompt, (answer) => {
+      rl.close()
+      resolve(answer)
+    })
+  })
+}
+
+function buildHints(
+  field: PlainEnvFieldDef<string>,
+  opts: { omitExample?: boolean } = {},
+): string {
   const parts: string[] = []
   if (field.minLength !== undefined) parts.push(`min ${field.minLength} chars`)
   if (field.maxLength !== undefined) parts.push(`max ${field.maxLength} chars`)
   if (field.min !== undefined) parts.push(`min ${field.min}`)
   if (field.max !== undefined) parts.push(`max ${field.max}`)
-  if (field.example) parts.push(`e.g. ${field.example}`)
+  if (!opts.omitExample && field.example) parts.push(`e.g. ${field.example}`)
   return parts.join(' · ')
 }
