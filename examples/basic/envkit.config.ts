@@ -1,4 +1,4 @@
-import { defineEnv } from '@envkit/core'
+import { defineEnv } from 'envkit-core'
 
 export default defineEnv({
   source: { type: 'combined', path: '.env' },

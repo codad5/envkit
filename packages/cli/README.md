@@ -69,7 +69,7 @@ Default config resolution: `envkit.config.ts` → `envkit.config.js` → `envkit
 Create `envkit.config.ts` at the root of your project:
 
 ```typescript
-import { defineEnv } from '@envkit/core'
+import { defineEnv } from 'envkit-core'
 
 export default defineEnv({
   source: { type: 'combined', path: '.env' },
@@ -88,4 +88,4 @@ export default defineEnv({
 })
 ```
 
-See [`@envkit/core`](../core/README.md) for the full schema field reference.
+See [`envkit-core`](../core/README.md) for the full schema field reference.

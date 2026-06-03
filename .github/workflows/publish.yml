@@ -40,8 +40,8 @@ jobs:
       # NODE_AUTH_TOKEN is only needed for the very first publish (token-based bootstrap).
       # After Trusted Publishing is configured on npmjs.com, remove the env blocks below
       # and OIDC takes over automatically via the id-token: write permission above.
-      - name: Publish @envkit/core
-        run: pnpm --filter @envkit/core publish --access public --no-git-checks
+      - name: Publish envkit-core
+        run: pnpm --filter envkit-core publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

@@ -1,9 +1,9 @@
-import { writeFileSync, existsSync } from 'fs'
+﻿import { writeFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import chalk from 'chalk'
 import type { LoadedConfig } from '../config-loader.js'
-import type { EnvGroupDef, EnvFieldDef, PlainEnvFieldDef } from '@envkit/core'
-import { parseEnvFile } from '@envkit/core'
+import type { EnvGroupDef, EnvFieldDef, PlainEnvFieldDef } from 'envkit-core'
+import { parseEnvFile } from 'envkit-core'
 import { promptForField } from '../utils/prompts.js'
 import { fmt, groupHeader, envEntry } from '../utils/format.js'
 
@@ -24,9 +24,9 @@ export async function runSetup(loaded: LoadedConfig): Promise<void> {
   }).length
 
   console.log()
-  console.log(chalk.bold.cyan('╔══════════════════════════════════════════╗'))
-  console.log(chalk.bold.cyan('║        envkit setup                      ║'))
-  console.log(chalk.bold.cyan('╚══════════════════════════════════════════╝'))
+  console.log(chalk.bold.cyan('â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—'))
+  console.log(chalk.bold.cyan('â•‘        envkit setup                      â•‘'))
+  console.log(chalk.bold.cyan('â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•'))
   console.log()
   console.log(`  ${fmt.bold('Target:')}  ${targetPath}`)
   console.log(`  ${fmt.bold('Mode:')}    ${isCompletion ? chalk.cyan('completion (filling missing vars)') : chalk.green('fresh setup')}`)

@@ -1,7 +1,7 @@
-import { parseEnvFile, loadRawEnv, validateEnv } from '@envkit/core'
+﻿import { parseEnvFile, loadRawEnv, validateEnv } from 'envkit-core'
 import { resolve } from 'node:path'
 import type { LoadedConfig } from '../config-loader.js'
-import type { EnvFieldDef } from '@envkit/core'
+import type { EnvFieldDef } from 'envkit-core'
 import { fmt } from '../utils/format.js'
 
 export async function runDiff(loaded: LoadedConfig): Promise<void> {
@@ -47,7 +47,7 @@ export async function runDiff(loaded: LoadedConfig): Promise<void> {
   console.log()
 
   if (missing.length === 0 && extra.length === 0 && invalid.length === 0) {
-    console.log(fmt.success('No diff — .env matches schema perfectly.'))
+    console.log(fmt.success('No diff â€” .env matches schema perfectly.'))
     console.log()
     return
   }

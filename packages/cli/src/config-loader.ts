@@ -1,6 +1,6 @@
-import { resolve } from 'path'
+﻿import { resolve } from 'path'
 import { existsSync } from 'fs'
-import type { EnvKitInstance, EnvGroupDef, EnvFieldDef } from '@envkit/core'
+import type { EnvKitInstance, EnvGroupDef, EnvFieldDef } from 'envkit-core'
 
 const CONFIG_CANDIDATES = [
   'envkit.config.ts',
@@ -48,7 +48,7 @@ export async function loadConfig(configPath: string): Promise<LoadedConfig> {
   if (!instance || typeof instance !== 'object' || typeof instance.load !== 'function') {
     throw new Error(
       `Config file "${configPath}" must export a default value from defineEnv(). ` +
-      `Example:\n  import { defineEnv } from '@envkit/core'\n  export default defineEnv({ ... })`
+      `Example:\n  import { defineEnv } from 'envkit-core'\n  export default defineEnv({ ... })`
     )
   }
 

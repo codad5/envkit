@@ -1,5 +1,5 @@
 {
-  "name": "@envkit/core",
+  "name": "envkit-core",
   "version": "0.1.0",
   "description": "Typed, schema-driven environment variable management",
   "license": "MIT",

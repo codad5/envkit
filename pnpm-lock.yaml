@@ -26,18 +26,15 @@ importers:
 
   examples/basic:
     dependencies:
-      '@envkit/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       envkit:
         specifier: workspace:*
         version: link:../../packages/cli
+      envkit-core:
+        specifier: workspace:*
+        version: link:../../packages/core
 
   packages/cli:
     dependencies:
-      '@envkit/core':
-        specifier: workspace:*
-        version: link:../core
       '@inquirer/prompts':
         specifier: ^8.5.2
         version: 8.5.2(@types/node@25.9.1)
@@ -47,6 +44,9 @@ importers:
       commander:
         specifier: ^15.0.0
         version: 15.0.0
+      envkit-core:
+        specifier: workspace:*
+        version: link:../core
       jiti:
         specifier: ^2.7.0
         version: 2.7.0

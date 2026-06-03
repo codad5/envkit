@@ -1,5 +1,5 @@
-import chalk from 'chalk'
-import type { EnvFieldDef, PlainEnvFieldDef } from '@envkit/core'
+﻿import chalk from 'chalk'
+import type { EnvFieldDef, PlainEnvFieldDef } from 'envkit-core'
 
 const BAR = '='.repeat(77)
 
@@ -87,17 +87,17 @@ export function buildEnvFileContent(
   return sections.join('\n\n\n') + '\n'
 }
 
-// ── Terminal output helpers ────────────────────────────────────────────────────
+// â”€â”€ Terminal output helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const fmt = {
-  success: (msg: string) => chalk.green(`✔  ${msg}`),
-  error: (msg: string) => chalk.red(`✗  ${msg}`),
-  warn: (msg: string) => chalk.yellow(`⚠  ${msg}`),
+  success: (msg: string) => chalk.green(`âœ”  ${msg}`),
+  error: (msg: string) => chalk.red(`âœ—  ${msg}`),
+  warn: (msg: string) => chalk.yellow(`âš   ${msg}`),
   info: (msg: string) => chalk.cyan(msg),
   dim: (msg: string) => chalk.dim(msg),
   bold: (msg: string) => chalk.bold(msg),
   secret: () => chalk.dim('[secret]'),
-  sectionHeader: (name: string) => chalk.bold.cyan(`\n  ── ${name} ──`),
+  sectionHeader: (name: string) => chalk.bold.cyan(`\n  â”€â”€ ${name} â”€â”€`),
 }
 
 export function truncate(value: string, maxLen = 60): string {

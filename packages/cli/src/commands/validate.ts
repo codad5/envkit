@@ -1,4 +1,4 @@
-import { parseEnvFile, loadRawEnv, validateEnv } from '@envkit/core'
+﻿import { parseEnvFile, loadRawEnv, validateEnv } from 'envkit-core'
 import { resolve } from 'node:path'
 import type { LoadedConfig } from '../config-loader.js'
 import { fmt, truncate } from '../utils/format.js'
@@ -14,7 +14,7 @@ export async function runValidate(loaded: LoadedConfig): Promise<boolean> {
   // Full source for validation (respects process.env overrides in combined/process mode)
   const fullRaw = loadRawEnv(source)
 
-  // File-only raw values — used to annotate which values came from the file vs env
+  // File-only raw values â€” used to annotate which values came from the file vs env
   const fileRaw: Record<string, string> =
     source.type !== 'process'
       ? parseEnvFile(resolve(process.cwd(), source.path ?? '.env'))

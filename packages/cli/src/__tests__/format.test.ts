@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+﻿import { describe, it, expect } from 'vitest'
 import { groupHeader, envEntry } from '../utils/format.js'
-import type { EnvFieldDef } from '@envkit/core'
+import type { EnvFieldDef } from 'envkit-core'
 
 describe('groupHeader', () => {
   it('renders the group name between bars', () => {
@@ -67,9 +67,9 @@ describe('envEntry', () => {
       type: 'string',
       description: 'API key',
       required: true,
-      howToGet: 'Get from dashboard → API Keys',
+      howToGet: 'Get from dashboard â†’ API Keys',
     }
     const out = envEntry('API_KEY', fieldWithHint, 'abc')
-    expect(out).toContain('# HOW TO GET: Get from dashboard → API Keys')
+    expect(out).toContain('# HOW TO GET: Get from dashboard â†’ API Keys')
   })
 })

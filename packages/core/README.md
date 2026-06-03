@@ -1,11 +1,11 @@
-# @envkit/core
+# envkit-core
 
 Runtime library for typed, schema-driven environment variable management.
 
 ## Install
 
 ```bash
-npm install @envkit/core
+npm install envkit-core
 # zod is optional — only needed for schema: z.xxx() fields
 npm install zod
 ```
@@ -15,7 +15,7 @@ npm install zod
 ### 1. Define schema — `envkit.config.ts`
 
 ```typescript
-import { defineEnv } from '@envkit/core'
+import { defineEnv } from 'envkit-core'
 
 export default defineEnv({
   source: { type: 'combined', path: '.env' },

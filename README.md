@@ -43,8 +43,10 @@ npx envkit diff     # show missing, extra, and invalid vars
 
 | Package | Description |
 |---|---|
-| [`@envkit/core`](./packages/core) | Runtime library — `defineEnv()`, typed validation, source loaders |
+| [`envkit-core`](./packages/core) | Runtime library — `defineEnv()`, typed validation, source loaders |
 | [`envkit`](./packages/cli) | CLI tool — setup wizard, validate, generate, diff |
+
+
 
 ---
 
@@ -53,14 +55,14 @@ npx envkit diff     # show missing, extra, and invalid vars
 ### 1. Install
 
 ```bash
-npm install @envkit/core
+npm install envkit-core
 npm install --save-dev envkit
 ```
 
 ### 2. Define your schema — `envkit.config.ts`
 
 ```typescript
-import { defineEnv } from '@envkit/core'
+import { defineEnv } from 'envkit-core'
 
 export default defineEnv({
   source: { type: 'combined', path: '.env' },  // file + process.env override
@@ -469,7 +471,7 @@ pnpm dev
 ```
 envkit/
 ├── packages/
-│   ├── core/    # @envkit/core — runtime library
+│   ├── core/    # envkit-core — runtime library
 │   └── cli/     # envkit      — CLI tool
 ├── examples/
 │   └── basic/   # minimal example project

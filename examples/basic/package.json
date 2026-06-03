@@ -10,7 +10,7 @@
     "env:diff": "envkit diff"
   },
   "dependencies": {
-    "@envkit/core": "workspace:*",
+    "envkit-core": "workspace:*",
     "envkit": "workspace:*"
   }
 }
