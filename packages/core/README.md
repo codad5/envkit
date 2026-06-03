@@ -32,7 +32,7 @@ export default defineEnv({
       required: false,
     },
     NODE_ENV: {
-      type: ['development', 'staging', 'production'],
+      type: ['development', 'staging', 'production'] as const,
       default: 'development',
       description: 'Runtime environment',
       group: 'server',
@@ -48,6 +48,12 @@ export default defineEnv({
   },
 })
 ```
+
+> **Inline enum literal types** — add `as const` to the array so TypeScript infers
+> `'development' | 'staging' | 'production'` instead of `string`.
+> Without it the union is widened to `string` at the type level (runtime validation
+> still works either way). Alternatively, use `schema: z.enum([...])` which preserves
+> literal types automatically.
 
 ### 2. Validate at startup — `env.ts`
 
