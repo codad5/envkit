@@ -97,14 +97,14 @@ function filterStringValues(env: NodeJS.ProcessEnv): Record<string, string> {
  * Reads from a .env file only. Does not merge process.env.
  * Supports write â€” produces a fully formatted .env with comments and group headers.
  */
-export function fileSource(options: { path?: string } = {}): WritableEnvSource {
+export function fileSource(options: { path?: string } = {}) {
   const filePath = options.path ?? '.env'
   return {
     filePath,
-    load(cwd = process.cwd()) {
+    load(cwd = process.cwd()): Record<string, string> {
       return parseEnvFile(resolve(cwd, filePath))
     },
-    write(payload, cwd = process.cwd()) {
+    write(payload: WritePayload, cwd = process.cwd()): void {
       const target = payload.outputPath ?? (payload.mode === 'generate' ? toExamplePath(filePath) : filePath)
       writeFileSync(resolve(cwd, target), formatEnvFile(payload), 'utf-8')
     },
@@ -115,9 +115,9 @@ export function fileSource(options: { path?: string } = {}): WritableEnvSource {
  * Reads from process.env only. Suitable for containers and production.
  * Read-only â€” does not implement write.
  */
-export function processSource(): EnvSource {
+export function processSource() {
   return {
-    load() {
+    load(): Record<string, string> {
       return filterStringValues(process.env)
     },
   }
@@ -130,15 +130,15 @@ export function processSource(): EnvSource {
  *
  * Alias: LocalEnvSource
  */
-export function combinedSource(options: { path?: string } = {}): WritableEnvSource {
+export function combinedSource(options: { path?: string } = {}) {
   const filePath = options.path ?? '.env'
   return {
     filePath,
-    load(cwd = process.cwd()) {
+    load(cwd = process.cwd()): Record<string, string> {
       const fileVars = parseEnvFile(resolve(cwd, filePath))
       return { ...fileVars, ...filterStringValues(process.env) }
     },
-    write(payload, cwd = process.cwd()) {
+    write(payload: WritePayload, cwd = process.cwd()): void {
       const target = payload.outputPath ?? (payload.mode === 'generate' ? toExamplePath(filePath) : filePath)
       writeFileSync(resolve(cwd, target), formatEnvFile(payload), 'utf-8')
     },
