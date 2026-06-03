@@ -1,6 +1,6 @@
 {
   "name": "envkit-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Typed, schema-driven environment variable management",
   "license": "MIT",
   "repository": {
@@ -10,7 +10,15 @@
   },
   "homepage": "https://github.com/codad5/envkit#readme",
   "bugs": "https://github.com/codad5/envkit/issues",
-  "keywords": ["env", "environment", "dotenv", "validation", "typescript", "schema", "zod"],
+  "keywords": [
+    "env",
+    "environment",
+    "dotenv",
+    "validation",
+    "typescript",
+    "schema",
+    "zod"
+  ],
   "publishConfig": {
     "access": "public"
   },
