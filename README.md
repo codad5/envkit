@@ -50,7 +50,7 @@ npx envkit diff     # show missing, extra, and invalid vars
 | Package | Description |
 |---|---|
 | [`envkit-core`](./packages/core) | Runtime library — `defineEnv()`, typed validation, source loaders |
-| [`envkit`](./packages/cli) | CLI tool — setup wizard, validate, generate, diff |
+| [`envkit-cli`](./packages/cli) | CLI tool — setup wizard, validate, generate, diff |
 
 
 
