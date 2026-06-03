@@ -69,10 +69,10 @@ Default config resolution: `envkit.config.ts` → `envkit.config.js` → `envkit
 Create `envkit.config.ts` at the root of your project:
 
 ```typescript
-import { defineEnv } from 'envkit-core'
+import { defineEnv, LocalEnvSource } from 'envkit-core'
 
 export default defineEnv({
-  source: { type: 'combined', path: '.env' },
+  source: LocalEnvSource({ path: '.env' }),
   envGroups: [
     { slug: 'server', name: 'Server Configuration' },
   ],
