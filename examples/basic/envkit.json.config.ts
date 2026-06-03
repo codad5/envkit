@@ -155,5 +155,19 @@ export default defineEnv({
       description: 'True when running in production mode',
       compute: ({ env }) => env.NODE_ENV === 'production',
     },
+    IS_DEVELOPMENT: {
+      description: 'True when running in local development mode',
+      compute: ({ env }) => env.NODE_ENV === 'development',
+    },
+    DB_HOST: {
+      description: 'Hostname extracted from DATABASE_URL',
+      compute: ({ env }) => {
+        try { return new URL(String(env.DATABASE_URL)).hostname } catch { return 'unknown' }
+      },
+    },
+    SERVER_ADDRESS: {
+      description: 'Full server address derived from PORT',
+      compute: ({ env }) => `http://localhost:${env.PORT}`,
+    },
   },
 })

@@ -18,11 +18,10 @@
 import { readFile } from 'fs/promises'
 import { resolve } from 'path'
 import { defineEnv } from 'envkit-core'
-import type { EnvSource } from 'envkit-core'
 
 // ── Custom async source ───────────────────────────────────────────────────────
 
-function asyncJsonSource(options: { path?: string } = {}): EnvSource {
+function asyncJsonSource(options: { path?: string } = {}) {
   const filePath = options.path ?? 'env.json'
 
   return {
@@ -102,6 +101,20 @@ export default defineEnv({
     IS_PRODUCTION: {
       description: 'True when running in production mode',
       compute: ({ env }) => env.NODE_ENV === 'production',
+    },
+    IS_DEVELOPMENT: {
+      description: 'True when running in local development mode',
+      compute: ({ env }) => env.NODE_ENV === 'development',
+    },
+    DB_HOST: {
+      description: 'Hostname extracted from DATABASE_URL',
+      compute: ({ env }) => {
+        try { return new URL(String(env.DATABASE_URL)).hostname } catch { return 'unknown' }
+      },
+    },
+    SERVER_ADDRESS: {
+      description: 'Full server address derived from PORT',
+      compute: ({ env }) => `http://localhost:${env.PORT}`,
     },
   },
 })
