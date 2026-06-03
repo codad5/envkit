@@ -34,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SourceConfig` and `SourceType` types (replaced by `EnvSource` / `WritableEnvSource`)
 - `loadRawEnv()` function (replaced by `source.load()`)
 
+### Fixed
+- `envkit generate` now delegates to `source.write()` instead of always writing a flat `.env.example` — custom sources (e.g. JSON, Vault) receive the sample payload and produce their own example format
+- `WritePayload` gains `mode: 'setup' | 'generate'` so sources can distinguish real values from sample/example output
+- `WritePayload` gains optional `outputPath` to pass `--output` flag through to the source
+- Built-in file sources derive the example path automatically: `.env` → `.env.example`, `env.json` → `env.example.json`
+- `toExamplePath()` exported from `envkit-core` for use in custom source implementations
+
 ## [0.1.1] - 2025-06-03
 
 ### Changed

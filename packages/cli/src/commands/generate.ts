@@ -1,70 +1,38 @@
-﻿import { writeFileSync } from 'node:fs'
 import { resolve as pathResolve } from 'node:path'
 import type { LoadedConfig } from '../config-loader'
-import type { EnvGroupDef, EnvFieldDef, PlainEnvFieldDef } from 'envkit-core'
-import { groupHeader, envEntry } from 'envkit-core'
+import type { EnvGroupDef, EnvFieldDef, PlainEnvFieldDef, EnvFieldWithValue } from 'envkit-core'
+import { isWritableSource, fileSource, toExamplePath } from 'envkit-core'
 import { fmt } from '../utils/format'
 
 export async function runGenerate(loaded: LoadedConfig, outputPath?: string): Promise<void> {
   const { instance } = loaded
-  const outFile = pathResolve(process.cwd(), outputPath ?? '.env.example')
-
   const schema = instance.schema as Record<string, EnvFieldDef<string>>
-  const groups: EnvGroupDef[] = instance.groups as EnvGroupDef[]
+  const groups = instance.groups as EnvGroupDef[]
+  const source = instance.source
 
-  // Group entries
-  const byGroup = new Map<string, Array<[string, EnvFieldDef<string>]>>()
-  const ungrouped: Array<[string, EnvFieldDef<string>]> = []
-
+  // Build envs with example/sample values — secrets get null (commented out in output)
+  const envs: Record<string, EnvFieldWithValue> = {}
   for (const [key, field] of Object.entries(schema)) {
-    const groupSlug = (field as PlainEnvFieldDef<string>).group
-    if (groupSlug) {
-      const groupDef = groups.find((g) => g.slug === groupSlug)
-      const groupName = groupDef?.name ?? groupSlug
-      if (!byGroup.has(groupName)) byGroup.set(groupName, [])
-      byGroup.get(groupName)!.push([key, field])
-    } else {
-      ungrouped.push([key, field])
-    }
+    const plain = field as PlainEnvFieldDef<string>
+    const value = plain.secret
+      ? null
+      : plain.example ?? (plain.default !== undefined ? String(plain.default) : null)
+    envs[key] = { ...field, value }
   }
 
-  const sections: string[] = []
+  const payload = { envs, groups, mode: 'generate' as const, outputPath }
 
-  for (const group of groups) {
-    const entries = byGroup.get(group.name) ?? []
-    if (entries.length === 0) continue
+  // Delegate to source — it knows how to format and where to write its example file.
+  // Fall back to fileSource for read-only sources (e.g. processSource).
+  const writer = isWritableSource(source) ? source : fileSource()
+  await Promise.resolve(writer.write(payload))
 
-    const lines = [groupHeader(group.name, group.description)]
-    for (const [key, field] of entries) {
-      const plain = field as PlainEnvFieldDef<string>
-      // Secrets: empty value with comment
-      const value = plain.secret
-        ? ''
-        : plain.example ?? (plain.default !== undefined ? String(plain.default) : '')
-      const commented = plain.secret
-      lines.push(envEntry(key, field, value, commented))
-    }
-    sections.push(lines.join('\n\n'))
-  }
-
-  if (ungrouped.length > 0) {
-    const lines = [groupHeader('Other')]
-    for (const [key, field] of ungrouped) {
-      const plain = field as PlainEnvFieldDef<string>
-      const value = plain.secret
-        ? ''
-        : plain.example ?? (plain.default !== undefined ? String(plain.default) : '')
-      const commented = plain.secret
-      lines.push(envEntry(key, field, value, commented))
-    }
-    sections.push(lines.join('\n\n'))
-  }
-
-  const content = sections.join('\n\n\n') + '\n'
-  writeFileSync(outFile, content, 'utf-8')
+  // Resolve the actual output path for the success message
+  const writtenPath = outputPath
+    ?? pathResolve(process.cwd(), toExamplePath(isWritableSource(writer) ? writer.filePath : '.env'))
 
   const count = Object.keys(schema).length
   console.log()
-  console.log(fmt.success(`Generated ${outFile} (${count} variable${count !== 1 ? 's' : ''})`))
+  console.log(fmt.success(`Generated ${writtenPath} (${count} variable${count !== 1 ? 's' : ''})`))
   console.log()
 }

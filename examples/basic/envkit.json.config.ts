@@ -54,7 +54,10 @@ function jsonSource(options: { path?: string } = {}): WritableEnvSource {
     },
 
     write(payload: WritePayload, cwd = process.cwd()): void {
-      const abs = resolve(cwd, filePath)
+      // In generate mode write to env.example.json (or --output override), not the live file
+      const target = payload.outputPath
+        ?? (payload.mode === 'generate' ? filePath.replace(/(\.\w+)$/, '.example$1') : filePath)
+      const abs = resolve(cwd, target)
 
       const vars: JsonEnvFile['vars'] = {}
 

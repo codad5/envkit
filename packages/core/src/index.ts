@@ -8,6 +8,7 @@ export {
   combinedSource,
   LocalEnvSource,
   isWritableSource,
+  toExamplePath,
 } from './sources'
 export type { EnvSource, WritableEnvSource } from './sources'
 export { groupHeader, envEntry, formatEnvFile } from './env-format'

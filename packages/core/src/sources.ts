@@ -74,6 +74,15 @@ export function parseEnvFile(filePath: string): Record<string, string> {
   return map
 }
 
+/** Derive the example output path from a source file path.
+ *  .env → .env.example  |  env.json → env.example.json */
+export function toExamplePath(p: string): string {
+  const name = p.split(/[/\\]/).pop() ?? p
+  if (name.startsWith('.')) return p + '.example'
+  const dot = p.lastIndexOf('.')
+  return dot === -1 ? p + '.example' : p.slice(0, dot) + '.example' + p.slice(dot)
+}
+
 function filterStringValues(env: NodeJS.ProcessEnv): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(env)) {
@@ -96,7 +105,8 @@ export function fileSource(options: { path?: string } = {}): WritableEnvSource {
       return parseEnvFile(resolve(cwd, filePath))
     },
     write(payload, cwd = process.cwd()) {
-      writeFileSync(resolve(cwd, filePath), formatEnvFile(payload), 'utf-8')
+      const target = payload.outputPath ?? (payload.mode === 'generate' ? toExamplePath(filePath) : filePath)
+      writeFileSync(resolve(cwd, target), formatEnvFile(payload), 'utf-8')
     },
   }
 }
@@ -129,7 +139,8 @@ export function combinedSource(options: { path?: string } = {}): WritableEnvSour
       return { ...fileVars, ...filterStringValues(process.env) }
     },
     write(payload, cwd = process.cwd()) {
-      writeFileSync(resolve(cwd, filePath), formatEnvFile(payload), 'utf-8')
+      const target = payload.outputPath ?? (payload.mode === 'generate' ? toExamplePath(filePath) : filePath)
+      writeFileSync(resolve(cwd, target), formatEnvFile(payload), 'utf-8')
     },
   }
 }

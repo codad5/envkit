@@ -5,6 +5,10 @@ export type EnvFieldWithValue = EnvFieldDef<string> & { value: string | null }
 export interface WritePayload {
   envs: Record<string, EnvFieldWithValue>
   groups: EnvGroupDef[]
+  /** 'setup' = real collected values, 'generate' = example/sample values for .env.example */
+  mode: 'setup' | 'generate'
+  /** Override the source's default output path (e.g. from --output flag) */
+  outputPath?: string
 }
 
 const BAR = '='.repeat(77)

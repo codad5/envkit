@@ -97,7 +97,7 @@ export async function runSetup(loaded: LoadedConfig): Promise<void> {
     envs[key] = { ...field, value }
   }
 
-  await Promise.resolve(source.write({ envs, groups }))
+  await Promise.resolve(source.write({ envs, groups, mode: 'setup' }))
 
   console.log()
   console.log(fmt.success(`Written to ${targetPath} (${totalVars} variable${totalVars !== 1 ? 's' : ''})`))
