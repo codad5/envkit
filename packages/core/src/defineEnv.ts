@@ -2,7 +2,6 @@ import type {
   EnvGroupDef,
   EnvFieldDef,
   ComputedFieldDef,
-  EnvKitConfig,
   EnvKitInstance,
   InferEnvSchema,
   InferComputedSchema,
@@ -17,10 +16,15 @@ const DEFAULT_SOURCE: SourceConfig = { type: 'file', path: '.env' }
 export function defineEnv<
   G extends EnvGroupDef[],
   S extends Record<string, EnvFieldDef<G[number]['slug']>>,
-  // C bound to InferEnvSchema<S> so TypeScript contextually types `env` inside
-  // each compute callback. Without this, env would be `any`.
   C extends Record<string, ComputedFieldDef<InferEnvSchema<S>>> = Record<never, never>,
->(config: EnvKitConfig<G, S, C>): EnvKitInstance<G, S, C> {
+>(config: {
+  source?: SourceConfig
+  envGroups?: G
+  envSchema: S
+  // Intersection: Record<string, ComputedFieldDef<InferEnvSchema<S>>> supplies the
+  // contextual type for `env` in each callback; C is still inferred as the specific type.
+  computed?: C & Record<string, ComputedFieldDef<InferEnvSchema<S>>>
+}): EnvKitInstance<G, S, C> {
   const source = config.source ?? DEFAULT_SOURCE
   const groups = (config.envGroups ?? []) as G
   const schema = config.envSchema
