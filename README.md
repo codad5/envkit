@@ -13,6 +13,32 @@ npx envkit diff     # show missing, extra, and invalid vars
 
 ---
 
+## Why envkit?
+
+| | envkit | t3-env | envalid | dotenv-safe | raw dotenv |
+|---|:---:|:---:|:---:|:---:|:---:|
+| TypeScript inference (no annotation needed) | ✅ | ✅ | ⚠️ partial | ❌ | ❌ |
+| Zod support | ✅ optional | ✅ required | ❌ | ❌ | ❌ |
+| Plain field types (no Zod needed) | ✅ | ❌ | ✅ | ❌ | ❌ |
+| Interactive setup wizard | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `.env.example` generation | ✅ | ❌ | ❌ | manual | ❌ |
+| Diff command (missing / extra / invalid) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Computed / derived fields | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Group organisation (for CLI & docs) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Proxy (throws on unknown key access) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `howToGet` hints in wizard & example | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Runtime only (no build step in library) | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+**Pick envkit if** you want one config file that powers both runtime validation _and_ developer tooling (setup wizard, generated `.env.example`, CI diff).
+
+**Pick t3-env if** you're already all-in on Zod and want the tightest possible integration with Next.js / tRPC conventions.
+
+**Pick envalid if** you want something minimal with no CLI and no Zod dependency.
+
+**Pick dotenv-safe if** all you need is "fail if a key in `.env.example` is missing" with zero setup.
+
+---
+
 ## Packages
 
 | Package | Description |
