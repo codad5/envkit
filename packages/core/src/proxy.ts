@@ -4,7 +4,12 @@
  */
 export function createEnvProxy<T extends Record<string, unknown>>(data: T): T {
   return new Proxy(data, {
-    get(target, prop: string) {
+    get(target, prop: string | symbol) {
+      // Allow symbol probes (e.g. Symbol.toPrimitive) and Promise thenable
+      // detection (.then / .catch / .finally) to return undefined rather than
+      // throwing — otherwise `await env` or Promise.resolve(env) breaks.
+      if (typeof prop === 'symbol') return undefined
+      if (prop === 'then' || prop === 'catch' || prop === 'finally') return undefined
       if (prop in target) return target[prop]
       throw new ReferenceError(
         `[envkit] Env variable "${prop}" is not defined in your schema. ` +
