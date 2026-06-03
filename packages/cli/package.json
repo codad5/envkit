@@ -2,6 +2,18 @@
   "name": "envkit",
   "version": "0.1.0",
   "description": "CLI tool for typed environment variable management",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codad5/envkit.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/codad5/envkit#readme",
+  "bugs": "https://github.com/codad5/envkit/issues",
+  "keywords": ["env", "environment", "dotenv", "cli", "setup", "wizard", "typescript", "validation"],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
     "envkit": "./dist/index.js"
