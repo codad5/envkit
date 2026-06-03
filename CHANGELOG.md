@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-03
+
+### Added
+- `config.load()` return type is now inferred as sync or async based on the source — if the source's `load()` returns a `Promise`, `config.load()` returns `Promise<Env>` and TypeScript requires `await`; sync sources stay sync with no changes needed
+
+### Fixed
+- `await config.load()` now works correctly — the env proxy was throwing `ReferenceError: "then" is not defined` when JavaScript checked for a thenable. Proxy now returns `undefined` for `.then`, `.catch`, `.finally`, and symbol keys
+- Example project missing `tsconfig.json` caused VS Code to show false "no declaration file" errors for `envkit-core`
+
 ## [0.2.0] - 2026-06-03
 
 ### Added
@@ -73,7 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Computed callback `env` parameter was typed as `any` — now fully inferred from schema
 - Inline enum `string[]` fields now support literal union inference with `as const`
 
-[Unreleased]: https://github.com/codad5/envkit/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/codad5/envkit/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/codad5/envkit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/codad5/envkit/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/codad5/envkit/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/codad5/envkit/releases/tag/v0.1.0

@@ -286,6 +286,29 @@ export function redisSource(options: { url: string; prefix?: string }): Writable
 
 The `write()` method receives a [`WritePayload`](#writepayload) with full field metadata (description, `howToGet`, `secret`, groups) so your source can produce rich, structured output.
 
+### Async sources
+
+If your source's `load()` returns a `Promise`, `config.load()` is automatically inferred as async — TypeScript requires `await` and errors if you forget it:
+
+```typescript
+// Async source (e.g. AWS Secrets Manager, Vault, encrypted file)
+export function vaultSource(): EnvSource {
+  return {
+    async load(): Promise<Record<string, string>> {
+      return await fetchFromVault()
+    },
+  }
+}
+
+// env.ts — TypeScript infers Promise<Env>, await is required
+export const env = await config.load()
+
+// Sync source (file, process.env) — no await needed
+export const env = config.load()
+```
+
+Top-level `await` requires `"type": "module"` in `package.json` (ESM). CJS users need an async init wrapper.
+
 ---
 
 ## Type inference
