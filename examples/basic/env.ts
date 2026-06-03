@@ -7,4 +7,4 @@ export const env = config.load()
 
 console.log('Loaded environment variables:')
 console.log(env)
-console.log(env.IS_PRODUCTION)  // Computed fields are available on the loaded env object
+console.log(env.NODE_ENV)  // Computed fields are available on the loaded env object
