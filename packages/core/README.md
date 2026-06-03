@@ -15,10 +15,10 @@ npm install zod
 ### 1. Define schema — `envkit.config.ts`
 
 ```typescript
-import { defineEnv } from 'envkit-core'
+import { defineEnv, LocalEnvSource } from 'envkit-core'
 
 export default defineEnv({
-  source: { type: 'combined', path: '.env' },
+  source: LocalEnvSource({ path: '.env' }),
   envGroups: [
     { slug: 'server', name: 'Server' },
     { slug: 'db',     name: 'Database' },

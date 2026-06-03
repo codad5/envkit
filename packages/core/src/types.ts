@@ -1,13 +1,3 @@
-// ── Source config ────────────────────────────────────────────────────────────
-
-export type SourceType = 'file' | 'process' | 'combined'
-
-export interface SourceConfig {
-  type: SourceType
-  /** Path to .env file. Only used when type is 'file' or 'combined'. Default: '.env' */
-  path?: string
-}
-
 // ── Group ────────────────────────────────────────────────────────────────────
 
 export interface EnvGroupDef {
@@ -125,7 +115,7 @@ export interface EnvKitConfig<
   S extends Record<string, EnvFieldDef<G[number]['slug']>>,
   C extends Record<string, ComputedFieldDef<any>> = Record<never, ComputedFieldDef<any>>
 > {
-  source?: SourceConfig
+  source?: import('./sources.js').EnvSource
   envGroups?: G
   envSchema: S
   /** Derived variables computed from the validated env at load() time. */
@@ -139,7 +129,7 @@ export interface EnvKitInstance<
 > {
   readonly schema: S
   readonly groups: G
-  readonly source: SourceConfig
+  readonly source: import('./sources.js').EnvSource
   readonly computed: C
   /** Validates all variables, runs computed fields, returns the fully typed env. Throws on error. */
   load(): InferEnvSchema<S> & InferComputedSchema<C>

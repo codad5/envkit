@@ -1,9 +1,15 @@
+﻿// Ensure UTF-8 output on Windows so Unicode symbols render correctly
+if (process.platform === 'win32') {
+  process.stdout.setDefaultEncoding('utf8')
+  process.stderr.setDefaultEncoding('utf8')
+}
+
 import { Command } from 'commander'
-import { resolveConfigPath, loadConfig } from './config-loader.js'
-import { runValidate } from './commands/validate.js'
-import { runGenerate } from './commands/generate.js'
-import { runDiff } from './commands/diff.js'
-import { runSetup } from './commands/setup.js'
+import { resolveConfigPath, loadConfig } from './config-loader'
+import { runValidate } from './commands/validate'
+import { runGenerate } from './commands/generate'
+import { runDiff } from './commands/diff'
+import { runSetup } from './commands/setup'
 
 const program = new Command()
 
@@ -17,7 +23,7 @@ function withConfig(cmd: Command): Command {
   return cmd.option('-c, --config <path>', 'Path to envkit config file')
 }
 
-// ── setup ───────────────────────────────────────────────────────────────────
+// â”€â”€ setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 withConfig(program.command('setup'))
   .description('Interactive wizard to create or complete your .env file')
@@ -32,7 +38,7 @@ withConfig(program.command('setup'))
     }
   })
 
-// ── validate ─────────────────────────────────────────────────────────────────
+// â”€â”€ validate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 withConfig(program.command('validate'))
   .description('Validate the current .env file against the schema')
@@ -48,7 +54,7 @@ withConfig(program.command('validate'))
     }
   })
 
-// ── generate ─────────────────────────────────────────────────────────────────
+// â”€â”€ generate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 withConfig(program.command('generate'))
   .description('Generate a .env.example file from the schema')
@@ -64,7 +70,7 @@ withConfig(program.command('generate'))
     }
   })
 
-// ── diff ──────────────────────────────────────────────────────────────────────
+// â”€â”€ diff â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 withConfig(program.command('diff'))
   .description('Show missing, extra, and invalid variables compared to the schema')

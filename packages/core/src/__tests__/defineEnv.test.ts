@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { defineEnv } from '../defineEnv.js'
+import { defineEnv } from '../defineEnv'
+import { processSource, fileSource } from '../sources'
 
 function makeTmpDir(content: string) {
   const dir = join(tmpdir(), 'envkit-define-' + Date.now())
@@ -14,7 +15,7 @@ function makeTmpDir(content: string) {
 describe('defineEnv', () => {
   it('returns schema, groups, and source', () => {
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envGroups: [{ slug: 'server', name: 'Server' }],
       envSchema: {
         PORT: { type: 'number', description: 'Port', required: false, default: 3000, group: 'server' },
@@ -23,42 +24,25 @@ describe('defineEnv', () => {
 
     expect(config.schema).toBeDefined()
     expect(config.groups).toHaveLength(1)
-    expect(config.source.type).toBe('process')
+    expect(config.source).toBeDefined()
   })
 
-  it('load() returns typed env from file', () => {
-    const dir = makeTmpDir('PORT=8080\nNODE_ENV=development\n')
+  it('load() returns typed env from process source', () => {
     const config = defineEnv({
-      source: { type: 'file', path: '.env' },
-      envSchema: {
-        PORT: { type: 'number', description: 'Port', required: true },
-        NODE_ENV: {
-          type: ['development', 'staging', 'production'],
-          description: 'Env',
-          required: true,
-        },
-      },
-    })
-
-    // Override the loader to use our tmp dir
-    const raw: Record<string, string> = { PORT: '8080', NODE_ENV: 'development' }
-    // We test the validator directly for file loading since load() uses cwd
-    // Instead, inject via process.env for process source:
-    const config2 = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_TEST_PORT: { type: 'number', description: 'Port', required: true },
       },
     })
     process.env['ENVKIT_TEST_PORT'] = '4321'
-    const env = config2.load()
+    const env = config.load()
     expect(env.ENVKIT_TEST_PORT).toBe(4321)
     delete process.env['ENVKIT_TEST_PORT']
   })
 
   it('load() throws when required variable is missing', () => {
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_MISSING_VAR: { type: 'string', description: 'Missing', required: true },
       },
@@ -69,7 +53,7 @@ describe('defineEnv', () => {
 
   it('load() uses default for optional missing field', () => {
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_OPT_PORT: { type: 'number', description: 'Port', required: false, default: 3000 },
       },
@@ -81,7 +65,7 @@ describe('defineEnv', () => {
 
   it('proxy throws for unknown key access', () => {
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_KNOWN: { type: 'string', description: 'Known', required: false, default: 'x' },
       },
@@ -97,7 +81,7 @@ describe('defineEnv — computed fields', () => {
     process.env['ENVKIT_PORT'] = '3000'
 
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_HOST: { type: 'string', description: 'Host', required: true },
         ENVKIT_PORT: { type: 'number', description: 'Port', required: true },
@@ -121,7 +105,7 @@ describe('defineEnv — computed fields', () => {
     process.env['ENVKIT_BASE_PORT'] = '8080'
 
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_BASE_PORT: { type: 'number', description: 'Port', required: true },
       },
@@ -143,7 +127,7 @@ describe('defineEnv — computed fields', () => {
     process.env['ENVKIT_DOMAIN'] = 'example.com'
 
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_SCHEME: { type: 'string', description: 'Scheme', required: true },
         ENVKIT_DOMAIN: { type: 'string', description: 'Domain', required: true },
@@ -166,7 +150,7 @@ describe('defineEnv — computed fields', () => {
 
   it('computed fields are on the instance as metadata', () => {
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_X: { type: 'string', description: 'X', required: false, default: 'x' },
       },
@@ -181,7 +165,7 @@ describe('defineEnv — computed fields', () => {
   it('throws at define time when a computed key conflicts with an envSchema key', () => {
     expect(() =>
       defineEnv({
-        source: { type: 'process' },
+        source: processSource(),
         envSchema: {
           ENVKIT_PORT: { type: 'number', description: 'Port', required: false, default: 3000 },
         },
@@ -194,7 +178,7 @@ describe('defineEnv — computed fields', () => {
 
   it('works with no computed field (backward compatible)', () => {
     const config = defineEnv({
-      source: { type: 'process' },
+      source: processSource(),
       envSchema: {
         ENVKIT_Y: { type: 'string', description: 'Y', required: false, default: 'y' },
       },
