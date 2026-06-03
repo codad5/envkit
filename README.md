@@ -2,6 +2,12 @@
 
 Typed, schema-driven environment variable management for Node.js and TypeScript.
 
+## The problem
+
+Managing environment variables across local, staging, and production is tedious and error-prone. Every new team member has to hunt down which variables exist, what format they take, and where to get them. You type them one by one, make a typo, get a cryptic runtime crash, fix it, repeat. Variables go stale in `.env.example`. Production gets a different set than staging. Nobody knows which ones are still used.
+
+envkit started from exactly this frustration — define the schema once, and let the tooling handle the rest: typed access, validation at startup, an interactive setup wizard that walks collaborators through every variable, and a generated `.env.example` that stays in sync automatically.
+
 Define your env schema once in `envkit.config.ts`. Get typed access, validation, CLI setup wizard, and generated `.env.example` — all from a single source of truth.
 
 ```
