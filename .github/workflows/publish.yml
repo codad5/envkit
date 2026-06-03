@@ -26,8 +26,6 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
-          # Remove always-auth and registry-url after first publish
-          # when switching to Trusted Publishing (OIDC)
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -38,7 +36,10 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # Publish core first — CLI depends on it
+      # Publish core first — CLI depends on it.
+      # NODE_AUTH_TOKEN is only needed for the very first publish (token-based bootstrap).
+      # After Trusted Publishing is configured on npmjs.com, remove the env blocks below
+      # and OIDC takes over automatically via the id-token: write permission above.
       - name: Publish @envkit/core
         run: pnpm --filter @envkit/core publish --access public --no-git-checks
         env:
