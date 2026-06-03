@@ -11,6 +11,6 @@
   },
   "dependencies": {
     "envkit-core": "workspace:*",
-    "envkit": "workspace:*"
+    "envkit-cli": "workspace:*"
   }
 }

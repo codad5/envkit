@@ -62,7 +62,7 @@ npx envkit diff     # show missing, extra, and invalid vars
 
 ```bash
 npm install envkit-core
-npm install --save-dev envkit
+npm install --save-dev envkit-cli
 ```
 
 ### 2. Define your schema — `envkit.config.ts`

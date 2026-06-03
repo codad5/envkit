@@ -14,7 +14,7 @@ npx envkit diff
 ## Install globally
 
 ```bash
-npm install -g envkit
+npm install -g envkit-cli
 envkit setup
 ```
 
