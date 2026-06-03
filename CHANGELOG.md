@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - unreleased (feat/pluggable-sources)
+
+### Added
+- `EnvSource` interface — minimum contract for any env source (`load()`)
+- `WritableEnvSource` interface — extends `EnvSource` with `write(payload)` and `filePath`
+- `WritePayload` type — carries `envs` (field definitions + collected values) and `groups` for rich formatting
+- `EnvFieldWithValue` type — `EnvFieldDef` intersected with `{ value: string | null }`
+- `fileSource({ path })` — reads from a `.env` file, writes formatted output with comments and group headers
+- `processSource()` — reads from `process.env` only, read-only
+- `combinedSource({ path })` — reads file + `process.env` override, writes to file; **recommended default**
+- `LocalEnvSource` — alias for `combinedSource`, idiomatic for local development
+- `isWritableSource(source)` — type guard narrowing `EnvSource` to `WritableEnvSource`
+- `groupHeader()` and `envEntry()` exported from `envkit-core` (moved from CLI internals)
+- `formatEnvFile(payload)` exported from `envkit-core` — renders a `WritePayload` to a formatted `.env` string
+
+### Changed
+- **Breaking:** `source` in `defineEnv()` now accepts `EnvSource` instead of `{ type, path? }` object literal
+- **Breaking:** `EnvKitInstance.source` is now `EnvSource` instead of `SourceConfig`
+- `WritableEnvSource.write()` receives a `WritePayload` (full field metadata + values) instead of bare `Record<string, string>` — sources produce formatted output themselves
+- Formatting helpers (`groupHeader`, `envEntry`) moved from `envkit-cli` internals to `envkit-core` exports
+- `envkit-core` is now a zero-dependency package — removed `dotenv` (`.env` parsing is built-in)
+- Removed `.js` extensions from all internal imports (tsup bundler handles resolution)
+
+### Removed
+- `SourceConfig` and `SourceType` types (replaced by `EnvSource` / `WritableEnvSource`)
+- `loadRawEnv()` function (replaced by `source.load()`)
+
 ## [0.1.1] - 2025-06-03
 
 ### Changed
@@ -40,5 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inline enum `string[]` fields now support literal union inference with `as const`
 
 [Unreleased]: https://github.com/codad5/envkit/compare/v0.1.1...HEAD
+[0.2.0]: https://github.com/codad5/envkit/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/codad5/envkit/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/codad5/envkit/releases/tag/v0.1.0

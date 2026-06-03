@@ -1,8 +1,9 @@
 ﻿import { writeFileSync } from 'node:fs'
 import { resolve as pathResolve } from 'node:path'
-import type { LoadedConfig } from '../config-loader.js'
+import type { LoadedConfig } from '../config-loader'
 import type { EnvGroupDef, EnvFieldDef, PlainEnvFieldDef } from 'envkit-core'
-import { fmt, groupHeader, envEntry } from '../utils/format.js'
+import { groupHeader, envEntry } from 'envkit-core'
+import { fmt } from '../utils/format'
 
 export async function runGenerate(loaded: LoadedConfig, outputPath?: string): Promise<void> {
   const { instance } = loaded

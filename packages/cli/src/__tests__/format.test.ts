@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect } from 'vitest'
-import { groupHeader, envEntry } from '../utils/format.js'
+import { groupHeader, envEntry } from 'envkit-core'
 import type { EnvFieldDef } from 'envkit-core'
 
 describe('groupHeader', () => {

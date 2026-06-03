@@ -1,8 +1,8 @@
-﻿import { parseEnvFile, loadRawEnv, validateEnv } from 'envkit-core'
+﻿import { parseEnvFile, validateEnv, isWritableSource } from 'envkit-core'
 import { resolve } from 'node:path'
-import type { LoadedConfig } from '../config-loader.js'
+import type { LoadedConfig } from '../config-loader'
 import type { EnvFieldDef } from 'envkit-core'
-import { fmt } from '../utils/format.js'
+import { fmt } from '../utils/format'
 
 export async function runDiff(loaded: LoadedConfig): Promise<void> {
   const { instance } = loaded
@@ -11,14 +11,13 @@ export async function runDiff(loaded: LoadedConfig): Promise<void> {
 
   // For "extra" detection, always read only from the .env file.
   // Using process.env would flood output with system variables.
-  const fileRaw: Record<string, string> =
-    source.type !== 'process'
-      ? parseEnvFile(resolve(process.cwd(), source.path ?? '.env'))
-      : {}
+  const fileRaw: Record<string, string> = isWritableSource(source)
+    ? parseEnvFile(resolve(process.cwd(), source.filePath))
+    : {}
 
   // For missing/invalid checks use the full source (file + process.env overrides)
   // so that vars injected via the environment (CI, containers) are respected.
-  const fullRaw = loadRawEnv(source)
+  const fullRaw = await Promise.resolve(source.load())
 
   const schemaKeys = new Set(Object.keys(schema))
   const fileKeys = new Set(Object.keys(fileRaw))

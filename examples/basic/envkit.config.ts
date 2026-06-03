@@ -1,7 +1,7 @@
-import { defineEnv } from 'envkit-core'
+import { defineEnv, LocalEnvSource } from 'envkit-core'
 
 export default defineEnv({
-  source: { type: 'combined', path: '.env' },
+  source: LocalEnvSource({ path: '.env' }),
   envGroups: [
     { slug: 'server',   name: 'Server Configuration', description: 'Core server settings' },
     { slug: 'database', name: 'Database',              description: 'Database connection settings' },
@@ -9,7 +9,7 @@ export default defineEnv({
   ],
   envSchema: {
     NODE_ENV: {
-      type: ['development', 'staging', 'production'],
+      type: ['development', 'staging', 'production'] as const,
       default: 'development',
       description: 'Application runtime environment',
       group: 'server',

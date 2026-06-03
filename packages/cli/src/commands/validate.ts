@@ -1,7 +1,7 @@
-﻿import { parseEnvFile, loadRawEnv, validateEnv } from 'envkit-core'
+﻿import { parseEnvFile, validateEnv, isWritableSource } from 'envkit-core'
 import { resolve } from 'node:path'
-import type { LoadedConfig } from '../config-loader.js'
-import { fmt, truncate } from '../utils/format.js'
+import type { LoadedConfig } from '../config-loader'
+import { fmt, truncate } from '../utils/format'
 
 export async function runValidate(loaded: LoadedConfig): Promise<boolean> {
   const { instance, configPath } = loaded
@@ -11,14 +11,12 @@ export async function runValidate(loaded: LoadedConfig): Promise<boolean> {
   console.log(fmt.dim(`  Validating .env against ${configPath}...`))
   console.log()
 
-  // Full source for validation (respects process.env overrides in combined/process mode)
-  const fullRaw = loadRawEnv(source)
+  const fullRaw = await Promise.resolve(source.load())
 
-  // File-only raw values â€” used to annotate which values came from the file vs env
-  const fileRaw: Record<string, string> =
-    source.type !== 'process'
-      ? parseEnvFile(resolve(process.cwd(), source.path ?? '.env'))
-      : fullRaw
+  // File-only values â€” used to annotate which values came from file vs process.env
+  const fileRaw: Record<string, string> = isWritableSource(source)
+    ? parseEnvFile(resolve(process.cwd(), source.filePath))
+    : fullRaw
 
   const result = validateEnv(instance.schema as Record<string, any>, fullRaw)
 

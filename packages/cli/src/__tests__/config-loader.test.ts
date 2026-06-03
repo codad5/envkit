@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
+﻿import { describe, it, expect } from 'vitest'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { resolveConfigPath } from '../config-loader.js'
+import { resolveConfigPath } from '../config-loader'
 
 function tmpDir() {
   const dir = join(tmpdir(), 'envkit-cli-test-' + Date.now())

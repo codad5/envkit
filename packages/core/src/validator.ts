@@ -1,9 +1,9 @@
-import type {
+﻿import type {
   EnvFieldDef,
   PlainEnvFieldDef,
   ZodLike,
   ValidationResult,
-} from './types.js'
+} from './types'
 
 /** Validate raw string env vars against the schema. Returns typed values on success. */
 export function validateEnv(

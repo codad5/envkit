@@ -1,20 +1,29 @@
-﻿import { writeFileSync, existsSync } from 'fs'
+﻿import { existsSync } from 'fs'
 import { resolve } from 'path'
 import chalk from 'chalk'
-import type { LoadedConfig } from '../config-loader.js'
-import type { EnvGroupDef, EnvFieldDef, PlainEnvFieldDef } from 'envkit-core'
-import { parseEnvFile } from 'envkit-core'
-import { promptForField } from '../utils/prompts.js'
-import { fmt, groupHeader, envEntry } from '../utils/format.js'
+import type { LoadedConfig } from '../config-loader'
+import type { EnvGroupDef, EnvFieldDef, PlainEnvFieldDef, EnvFieldWithValue } from 'envkit-core'
+import { parseEnvFile, isWritableSource } from 'envkit-core'
+import { promptForField } from '../utils/prompts'
+import { fmt } from '../utils/format'
 
 export async function runSetup(loaded: LoadedConfig): Promise<void> {
   const { instance } = loaded
   const schema = instance.schema as Record<string, EnvFieldDef<string>>
   const groups = instance.groups as EnvGroupDef[]
-
   const source = instance.source
-  const targetPath = resolve(process.cwd(), source.path ?? '.env')
-  const existing = source.type !== 'process' ? parseEnvFile(targetPath) : {}
+
+  if (!isWritableSource(source)) {
+    console.log()
+    console.log(fmt.error('This source does not support the setup wizard.'))
+    console.log(fmt.dim('  The configured source is read-only (no write() method).'))
+    console.log(fmt.dim('  Implement WritableEnvSource in your custom source, or use fileSource() / combinedSource().'))
+    console.log()
+    process.exit(1)
+  }
+
+  const targetPath = resolve(process.cwd(), source.filePath)
+  const existing = parseEnvFile(targetPath)
   const isCompletion = existsSync(targetPath)
 
   const totalVars = Object.keys(schema).length
@@ -40,13 +49,10 @@ export async function runSetup(loaded: LoadedConfig): Promise<void> {
     return
   }
 
-  // Collect answers per key
-  const answers = new Map<string, { value: string | null; skipped: boolean }>()
+  // â”€â”€ Prompt for each field in group order â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // Group entries for ordered prompting
-  const promptOrder: Array<[string, EnvFieldDef<string>]> = []
+  const answers = new Map<string, string | null>()
 
-  // First pass: collect by group order
   const byGroupSlug = new Map<string, Array<[string, EnvFieldDef<string>]>>()
   const ungroupedEntries: Array<[string, EnvFieldDef<string>]> = []
 
@@ -62,97 +68,49 @@ export async function runSetup(loaded: LoadedConfig): Promise<void> {
 
   for (const group of groups) {
     const entries = byGroupSlug.get(group.slug) ?? []
-    if (entries.length > 0) {
-      console.log(fmt.sectionHeader(group.name))
-      if (group.description) console.log(`  ${fmt.dim(group.description)}`)
+    if (entries.length === 0) continue
 
-      for (const [key, field] of entries) {
-        const result = await promptForField(key, field, existing[key])
-        answers.set(key, result)
-      }
+    console.log(fmt.sectionHeader(group.name))
+    if (group.description) console.log(`  ${fmt.dim(group.description)}`)
+
+    for (const [key, field] of entries) {
+      const { value } = await promptForField(key, field, existing[key])
+      answers.set(key, value)
     }
   }
 
   if (ungroupedEntries.length > 0) {
     console.log(fmt.sectionHeader('Other'))
     for (const [key, field] of ungroupedEntries) {
-      const result = await promptForField(key, field, existing[key])
-      answers.set(key, result)
+      const { value } = await promptForField(key, field, existing[key])
+      answers.set(key, value)
     }
   }
 
-  // Build the output file
-  const sections: string[] = []
+  // â”€â”€ Build WritePayload and delegate to source â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  for (const group of groups) {
-    const entries = byGroupSlug.get(group.slug) ?? []
-    if (entries.length === 0) continue
-
-    const lines = [groupHeader(group.name, group.description)]
-
-    for (const [key, field] of entries) {
-      const answer = answers.get(key)
-      const plain = field as PlainEnvFieldDef<string>
-
-      let value: string | null
-      let commented: boolean
-
-      if (answer) {
-        value = answer.value
-        commented = answer.skipped && !plain.required
-      } else {
-        value = existing[key] ?? (plain.default !== undefined ? String(plain.default) : null)
-        commented = false
-      }
-
-      if ((value === null || value === '') && !plain.required) {
-        commented = true
-        value = plain.example ?? (plain.default !== undefined ? String(plain.default) : '')
-      }
-
-      lines.push(envEntry(key, field, value ?? '', commented))
-    }
-
-    sections.push(lines.join('\n\n'))
+  const envs: Record<string, EnvFieldWithValue> = {}
+  for (const [key, field] of Object.entries(schema)) {
+    const plain = field as PlainEnvFieldDef<string>
+    const answered = answers.get(key) ?? existing[key] ?? null
+    const value = answered !== '' ? answered : (plain.default !== undefined ? String(plain.default) : null)
+    envs[key] = { ...field, value }
   }
 
-  if (ungroupedEntries.length > 0) {
-    const lines = [groupHeader('Other')]
-
-    for (const [key, field] of ungroupedEntries) {
-      const answer = answers.get(key)
-      const plain = field as PlainEnvFieldDef<string>
-
-      const value = answer?.value ?? existing[key] ?? (plain.default !== undefined ? String(plain.default) : null)
-      const commented = (answer?.skipped ?? false) && !plain.required
-
-      lines.push(envEntry(key, field, value ?? '', commented))
-    }
-
-    sections.push(lines.join('\n\n'))
-  }
-
-  const content = sections.join('\n\n\n') + '\n'
-  writeFileSync(targetPath, content, 'utf-8')
+  await Promise.resolve(source.write({ envs, groups }))
 
   console.log()
   console.log(fmt.success(`Written to ${targetPath} (${totalVars} variable${totalVars !== 1 ? 's' : ''})`))
 
   // Report still-missing required vars
-  const stillMissing: string[] = []
-  for (const [key, field] of Object.entries(schema)) {
-    if (!(field as any).required) continue
-    const answer = answers.get(key)
-    const val = answer ? answer.value : existing[key]
-    if (!val) stillMissing.push(key)
-  }
+  const stillMissing = Object.entries(schema)
+    .filter(([key, field]) => (field as any).required && !envs[key]?.value)
+    .map(([key]) => key)
 
   if (stillMissing.length > 0) {
     console.log()
     console.log(fmt.warn(`${stillMissing.length} required variable${stillMissing.length > 1 ? 's' : ''} still not set:`))
-    for (const key of stillMissing) {
-      console.log(`  ${fmt.error(key)}`)
-    }
+    for (const key of stillMissing) console.log(`  ${fmt.error(key)}`)
     console.log()
     console.log(fmt.dim('  Run again or edit the file directly to fill these in.'))
   }

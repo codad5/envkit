@@ -68,10 +68,10 @@ npm install --save-dev envkit-cli
 ### 2. Define your schema — `envkit.config.ts`
 
 ```typescript
-import { defineEnv } from 'envkit-core'
+import { defineEnv, LocalEnvSource } from 'envkit-core'
 
 export default defineEnv({
-  source: { type: 'combined', path: '.env' },  // file + process.env override
+  source: LocalEnvSource({ path: '.env' }),  // file + process.env override
   envGroups: [
     { slug: 'server',   name: 'Server Configuration' },
     { slug: 'database', name: 'Database' },
@@ -242,16 +242,49 @@ z.string().refine(v => v !== 'admin', 'Cannot use "admin"')
 
 ## Source types
 
+Sources are pluggable — built-ins cover most cases, and you can implement your own by satisfying the `EnvSource` interface.
+
 ```typescript
+import { fileSource, processSource, combinedSource, LocalEnvSource } from 'envkit-core'
+
 // Load from a .env file only
-source: { type: 'file', path: '.env' }
+source: fileSource({ path: '.env' })
 
-// Use process.env only — no file (ideal for containers/prod)
-source: { type: 'process' }
+// Use process.env only — no file (ideal for containers / production)
+source: processSource()
 
-// File + process.env override (recommended — file for local dev, env vars for prod)
-source: { type: 'combined', path: '.env' }
+// File + process.env override — recommended for local dev
+// process.env values win, so CI/Docker env vars always take precedence
+source: combinedSource({ path: '.env' })
+
+// LocalEnvSource is an alias for combinedSource
+source: LocalEnvSource({ path: '.env' })
 ```
+
+### Custom sources
+
+Implement `EnvSource` (read-only) or `WritableEnvSource` (read + write) to load from any backend:
+
+```typescript
+import type { WritableEnvSource, WritePayload } from 'envkit-core'
+
+export function redisSource(options: { url: string; prefix?: string }): WritableEnvSource {
+  return {
+    filePath: `redis:${options.url}`,   // used by CLI for display
+    async load() {
+      // fetch key→value pairs from Redis
+      return fetchFromRedis(options)
+    },
+    async write(payload: WritePayload) {
+      // payload.envs has each field + its value + all metadata
+      // payload.groups has group ordering
+      await writeToRedis(options, payload)
+    },
+  }
+}
+```
+
+The `write()` method receives a [`WritePayload`](#writepayload) with full field metadata (description, `howToGet`, `secret`, groups) so your source can produce rich, structured output.
 
 ---
 
