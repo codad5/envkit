@@ -8,14 +8,16 @@
     "env:validate": "envkit validate",
     "env:generate": "envkit generate",
     "env:diff": "envkit diff",
-
     "env:setup:json": "envkit setup --config envkit.json.config.ts",
     "env:validate:json": "envkit validate --config envkit.json.config.ts",
     "env:generate:json": "envkit generate --config envkit.json.config.ts",
     "env:diff:json": "envkit diff --config envkit.json.config.ts"
   },
   "dependencies": {
-    "envkit-core": "workspace:*",
-    "envkit-cli": "workspace:*"
+    "envkit-cli": "workspace:*",
+    "envkit-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1"
   }
 }
