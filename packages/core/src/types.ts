@@ -40,8 +40,8 @@ export type ZodLike = {
 }
 
 export interface PlainEnvFieldDef<GroupSlug extends string = string> {
-  /** Variable type. Use a string[] for an inline enum literal union. */
-  type: PrimitiveType | string[]
+  /** Variable type. Use a readonly string[] for an inline enum literal union. */
+  type: PrimitiveType | readonly string[]
   schema?: never
   default?: unknown
   description: string
@@ -101,7 +101,7 @@ export type InferComputedSchema<C extends Record<string, ComputedFieldDef<any>>>
 type InferRawType<F extends EnvFieldDef<any>> =
   F extends { schema: ZodLike }
     ? unknown  // Zod type inferred at load-time; static inference requires z.infer
-    : F extends { type: (infer V extends string)[] }
+    : F extends { type: readonly (infer V extends string)[] }
     ? V
     : F extends { type: keyof PrimitiveTypeMap }
     ? PrimitiveTypeMap[F['type']]
