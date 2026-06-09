@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, expectTypeOf } from 'vitest'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { z } from 'zod'
 import { defineEnv } from '../defineEnv'
 import { processSource, fileSource } from '../sources'
 
@@ -72,6 +73,41 @@ describe('defineEnv', () => {
     })
     const env = config.load() as any
     expect(() => env.UNKNOWN_KEY).toThrow(ReferenceError)
+  })
+
+  it('load() infers zod schema output types', () => {
+    const config = defineEnv({
+      source: processSource(),
+      envSchema: {
+        ENVKIT_DATABASE_URL: {
+          schema: z.string().url(),
+          description: 'Database URL',
+        },
+        ENVKIT_NODE_ENV: {
+          schema: z.enum(['development', 'production']).default('development'),
+          description: 'Node environment',
+        },
+        ENVKIT_PORT: {
+          schema: z.coerce.number().default(3000),
+          description: 'HTTP port',
+        },
+      },
+    })
+
+    process.env['ENVKIT_DATABASE_URL'] = 'https://example.com/db'
+    delete process.env['ENVKIT_NODE_ENV']
+    delete process.env['ENVKIT_PORT']
+
+    const env = config.load()
+    expectTypeOf(env.ENVKIT_DATABASE_URL).toEqualTypeOf<string>()
+    expectTypeOf(env.ENVKIT_NODE_ENV).toEqualTypeOf<'development' | 'production'>()
+    expectTypeOf(env.ENVKIT_PORT).toEqualTypeOf<number>()
+
+    expect(env.ENVKIT_DATABASE_URL).toBe('https://example.com/db')
+    expect(env.ENVKIT_NODE_ENV).toBe('development')
+    expect(env.ENVKIT_PORT).toBe(3000)
+
+    delete process.env['ENVKIT_DATABASE_URL']
   })
 })
 
