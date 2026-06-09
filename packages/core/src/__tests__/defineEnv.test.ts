@@ -4,7 +4,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { defineEnv } from '../defineEnv'
 import { processSource, fileSource } from '../sources'
-import type { ZodLike } from '../types.js'
+import type { ZodLike } from '../types'
 
 function makeTmpDir(content: string) {
   const dir = join(tmpdir(), 'envkit-define-' + Date.now())
@@ -14,7 +14,7 @@ function makeTmpDir(content: string) {
 }
 
 function createZodLikeSchema<T>(parse: (value: unknown) => T): ZodLike & { _output: T } {
-  return {
+  const schema: ZodLike & { _output: T } = {
     parse,
     safeParse(value: unknown) {
       try {
@@ -23,7 +23,8 @@ function createZodLikeSchema<T>(parse: (value: unknown) => T): ZodLike & { _outp
         return { success: false, error }
       }
     },
-  } as ZodLike & { _output: T }
+  }
+  return schema
 }
 
 describe('defineEnv', () => {
