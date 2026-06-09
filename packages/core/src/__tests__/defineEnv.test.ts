@@ -13,13 +13,13 @@ function makeTmpDir(content: string) {
   return dir
 }
 
-function zodLikeSchema<T>(parse: (value: unknown) => T): ZodLike & { _output: T } {
+function createZodLikeSchema<T>(parse: (value: unknown) => T): ZodLike & { _output: T } {
   return {
     parse,
     safeParse(value: unknown) {
       try {
         return { success: true, data: parse(value) }
-      } catch (error) {
+      } catch (error: unknown) {
         return { success: false, error }
       }
     },
@@ -89,21 +89,25 @@ describe('defineEnv', () => {
   })
 
   it('load() infers zod schema output types', () => {
-    const databaseUrlSchema = zodLikeSchema<string>((value) => {
+    const databaseUrlSchema = createZodLikeSchema<string>((value) => {
       if (typeof value !== 'string') throw new Error('Expected string')
       new URL(value)
       return value
     })
 
-    const nodeEnvSchema = zodLikeSchema<'development' | 'production'>((value) => {
+    const nodeEnvSchema = createZodLikeSchema<'development' | 'production'>((value) => {
       if (value === undefined) return 'development'
       if (value === 'development' || value === 'production') return value
       throw new Error('Expected development or production')
     })
 
-    const portSchema = zodLikeSchema<number>((value) => {
+    const portSchema = createZodLikeSchema<number>((value) => {
       if (value === undefined) return 3000
       if (typeof value === 'number') return value
+      if (typeof value === 'string') {
+        const parsed = Number(value)
+        if (!Number.isNaN(parsed)) return parsed
+      }
       throw new Error('Expected number')
     })
 
