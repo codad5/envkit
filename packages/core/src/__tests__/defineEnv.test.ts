@@ -1,15 +1,30 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, expectTypeOf } from 'vitest'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { defineEnv } from '../defineEnv'
 import { processSource, fileSource } from '../sources'
+import type { ZodLike } from '../types'
 
 function makeTmpDir(content: string) {
   const dir = join(tmpdir(), 'envkit-define-' + Date.now())
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, '.env'), content, 'utf-8')
   return dir
+}
+
+function createZodLikeSchema<T>(parse: (value: unknown) => T): ZodLike & { _output: T } {
+  const schema: ZodLike & { _output: T } = {
+    parse,
+    safeParse(value: unknown) {
+      try {
+        return { success: true, data: parse(value) }
+      } catch (error: unknown) {
+        return { success: false, error }
+      }
+    },
+  }
+  return schema
 }
 
 describe('defineEnv', () => {
@@ -72,6 +87,71 @@ describe('defineEnv', () => {
     })
     const env = config.load() as any
     expect(() => env.UNKNOWN_KEY).toThrow(ReferenceError)
+  })
+
+  it('load() infers zod schema output types', () => {
+    const databaseUrlSchema = createZodLikeSchema<string>((value) => {
+      if (typeof value !== 'string') throw new Error('Expected string')
+      new URL(value)
+      return value
+    })
+
+    const nodeEnvSchema = createZodLikeSchema<'development' | 'production'>((value) => {
+      if (value === undefined) return 'development'
+      if (value === 'development' || value === 'production') return value
+      throw new Error('Expected development or production')
+    })
+
+    const portSchema = createZodLikeSchema<number>((value) => {
+      if (value === undefined) return 3000
+      if (typeof value === 'number') return value
+      if (typeof value === 'string') {
+        const parsed = Number(value)
+        if (!Number.isNaN(parsed)) return parsed
+      }
+      throw new Error('Expected number')
+    })
+
+    const config = defineEnv({
+      source: processSource(),
+      envSchema: {
+        ENVKIT_DATABASE_URL: {
+          schema: databaseUrlSchema,
+          description: 'Database URL',
+        },
+        ENVKIT_NODE_ENV: {
+          schema: nodeEnvSchema,
+          description: 'Node environment',
+        },
+        ENVKIT_PORT: {
+          schema: portSchema,
+          description: 'HTTP port',
+        },
+        ENVKIT_RETRIES: {
+          type: 'number',
+          description: 'Retry count',
+          required: false,
+          default: 3,
+        },
+      },
+    })
+
+    process.env['ENVKIT_DATABASE_URL'] = 'https://example.com/db'
+    delete process.env['ENVKIT_NODE_ENV']
+    delete process.env['ENVKIT_PORT']
+
+    const env = config.load()
+    expectTypeOf(env.ENVKIT_DATABASE_URL).toEqualTypeOf<string>()
+    expectTypeOf(env.ENVKIT_NODE_ENV).toEqualTypeOf<'development' | 'production'>()
+    expectTypeOf(env.ENVKIT_PORT).toEqualTypeOf<number>()
+    expectTypeOf(env.ENVKIT_RETRIES).toEqualTypeOf<number>()
+
+    expect(env.ENVKIT_DATABASE_URL).toBe('https://example.com/db')
+    expect(env.ENVKIT_NODE_ENV).toBe('development')
+    expect(env.ENVKIT_PORT).toBe(3000)
+    expect(env.ENVKIT_RETRIES).toBe(3)
+
+    delete process.env['ENVKIT_DATABASE_URL']
   })
 })
 

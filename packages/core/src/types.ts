@@ -89,7 +89,9 @@ export type InferComputedSchema<C extends Record<string, ComputedFieldDef<any>>>
 // ── Inference helpers ────────────────────────────────────────────────────────
 
 type InferRawType<F extends EnvFieldDef<any>> =
-  F extends { schema: ZodLike }
+  F extends { schema: { _output: infer O } }
+    ? O
+    : F extends { schema: ZodLike }
     ? unknown  // Zod type inferred at load-time; static inference requires z.infer
     : F extends { type: readonly (infer V extends string)[] }
     ? V
