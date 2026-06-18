@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-06-18
+
+### Fixed
+- Zod-like schemas with `_output` type parameter now correctly infer the output type in `config.load()` — previously resolved to `unknown` even when the schema carried `_output`
+- Test suite strengthened to cover `_output` inference, non-zod schema handling, and mock `safeParse` behavior
+
 ## [0.2.1] - 2026-06-03
 
 ### Added
