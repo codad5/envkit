@@ -35,6 +35,7 @@ Validates your `.env` against the schema. Exits with code `1` on failure — use
 
 ```bash
 envkit validate
+envkit validate --json   # { success, errors, values } — secrets masked as "[secret]"
 ```
 
 ### `envkit generate`
@@ -54,6 +55,7 @@ vars alone are a warning and don't affect the exit code.
 
 ```bash
 envkit diff
+envkit diff --json   # { clean, missing, extra, invalid }
 ```
 
 ## Options
@@ -64,7 +66,13 @@ All commands accept:
 |---|---|
 | `-c, --config <path>` | Path to a non-default config file |
 
+`validate` and `diff` also accept `--json` to print a single JSON object instead of human-readable text — useful for a custom CI reporter.
+
 Default config resolution: `envkit.config.ts` → `envkit.config.js` → `envkit.config.mjs`
+
+### Monorepos
+
+Config resolution and `generate --output` are relative to `process.cwd()`, not the repo root. If `envkit.config.ts` lives at the workspace root but the CLI runs from a package directory (the usual pnpm/Turborepo setup), pass `--config` (and `--output`, for `generate`) with a relative path back to the root — see the [main README](../../README.md#monorepos-pnpm-workspaces-turborepo) for a full example.
 
 ## Config file
 

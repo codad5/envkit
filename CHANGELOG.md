@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `visibility: 'server' | 'public'` field option (default `'server'`) — `config.load()` now returns `{ serverEnv, publicEnv }` instead of a flat env object. `serverEnv` carries every field and throws on read once `typeof window !== 'undefined'`; `publicEnv` carries only `visibility: 'public'` fields and is safe to import into client-bundled code (Next.js/Vite/etc.)
 - `secret: true` combined with `visibility: 'public'` is now rejected both at compile time (TypeScript) and at `defineEnv()` call time (plain JS) — that combination is always a mistake
 - `createServerEnvProxy` exported from `envkit-core` for custom source/wrapper authors who need the same browser guard
+- `lazy?: boolean` option on `defineEnv()` (default `false`) — defers reading the source and validating until the first variable is actually read, instead of at the `load()` call. Requires a synchronous source; TypeScript rejects `lazy: true` with an async source at the `defineEnv()` call, plain-JS callers get a runtime error at first access instead
+- `--json` flag on `envkit validate` (prints `{ success, errors, values }`, secrets masked as `"[secret]"`) and `envkit diff` (prints `{ clean, missing, extra, invalid }`) — for scripting a custom CI reporter instead of parsing human-readable text
+- Documented picking a source by environment (`processSource()` in production/containers vs `combinedSource()` locally) and CWD-relative config/`--output` resolution for pnpm/Turborepo monorepos
 
 ### Changed
 - **Breaking:** `defineEnv().load()` returns `{ serverEnv, publicEnv }` instead of a flat env object. Update `const env = config.load()` to `const { serverEnv } = config.load()` (or destructure `publicEnv` too for client-safe fields)
@@ -18,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `ZodLike` no longer types Zod 3's internal `_def` shape (`typeName`/`innerType`) as a requirement — assigning a Zod 4 schema (e.g. `schema: z.string().startsWith(...)`) to a field previously failed `tsc` even though it validated correctly at runtime. `ZodLike` is now just `{ parse, safeParse }`; Zod-version-specific `_def` shapes are read defensively at runtime in both majors
+- `lazy: true`'s Proxy used a fragile `resolvedError !== undefined` sentinel to decide whether a cached failure should be re-thrown — a source or computed field throwing `undefined` itself was indistinguishable from "no cached error", surfacing an opaque `TypeError` on the second access instead of the original failure. Replaced with a dedicated `hasError` flag
 
 ## [0.2.2] - 2026-06-18
 

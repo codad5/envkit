@@ -36,9 +36,10 @@ afterEach(() => {
 describe('runDiff', () => {
   it('returns true and reports no diff for a matching .env', async () => {
     const path = tmpEnvFile('DATABASE_URL=postgresql://localhost/db\n')
-    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const ok = await runDiff(loadedConfigFor(path))
     expect(ok).toBe(true)
+    expect(logSpy.mock.calls.some((call) => String(call[0]).includes('No diff'))).toBe(true)
   })
 
   it('returns false when a required variable is missing', async () => {
@@ -60,5 +61,62 @@ describe('runDiff', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const ok = await runDiff(loadedConfigFor(path))
     expect(ok).toBe(true)
+  })
+
+  describe('--json', () => {
+    it('reports clean: true with empty arrays for a matching .env, and returns true', async () => {
+      const path = tmpEnvFile('DATABASE_URL=postgresql://localhost/db\n')
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      const ok = await runDiff(loadedConfigFor(path), { json: true })
+
+      expect(logSpy).toHaveBeenCalledTimes(1)
+      const printed = JSON.parse(logSpy.mock.calls[0]![0] as string)
+      expect(printed).toEqual({ clean: true, missing: [], extra: [], invalid: [] })
+      expect(ok).toBe(true)
+    })
+
+    it('reports missing required variables and returns false (so the CLI still exits 1 under --json)', async () => {
+      const path = tmpEnvFile('')
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      const ok = await runDiff(loadedConfigFor(path), { json: true })
+
+      const printed = JSON.parse(logSpy.mock.calls[0]![0] as string)
+      expect(printed.clean).toBe(false)
+      expect(printed.missing).toEqual(['DATABASE_URL'])
+      expect(printed.extra).toEqual([])
+      expect(printed.invalid).toEqual([])
+      expect(ok).toBe(false)
+    })
+
+    it('reports invalid variables with their message and returns false', async () => {
+      const path = tmpEnvFile('DATABASE_URL=mysql://localhost/db\n')
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      const ok = await runDiff(loadedConfigFor(path), { json: true })
+
+      const printed = JSON.parse(logSpy.mock.calls[0]![0] as string)
+      expect(printed.clean).toBe(false)
+      expect(printed.missing).toEqual([])
+      expect(printed.invalid).toHaveLength(1)
+      expect(printed.invalid[0].key).toBe('DATABASE_URL')
+      expect(typeof printed.invalid[0].message).toBe('string')
+      expect(ok).toBe(false)
+    })
+
+    it('reports extra (undeclared) keys as clean: true, and returns true — extra alone is a warning, not a failure', async () => {
+      const path = tmpEnvFile('DATABASE_URL=postgresql://localhost/db\nOLD_LEGACY_KEY=x\n')
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      const ok = await runDiff(loadedConfigFor(path), { json: true })
+
+      const printed = JSON.parse(logSpy.mock.calls[0]![0] as string)
+      expect(printed.missing).toEqual([])
+      expect(printed.invalid).toEqual([])
+      expect(printed.extra).toEqual(['OLD_LEGACY_KEY'])
+      expect(printed.clean).toBe(true)
+      expect(ok).toBe(true)
+    })
   })
 })
