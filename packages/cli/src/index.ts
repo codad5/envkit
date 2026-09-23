@@ -42,11 +42,12 @@ withConfig(program.command('setup'))
 
 withConfig(program.command('validate'))
   .description('Validate the current .env file against the schema')
-  .action(async (opts: { config?: string }) => {
+  .option('--json', 'Output a single JSON object instead of human-readable text')
+  .action(async (opts: { config?: string; json?: boolean }) => {
     try {
       const configPath = resolveConfigPath(opts.config)
       const loaded = await loadConfig(configPath)
-      const ok = await runValidate(loaded)
+      const ok = await runValidate(loaded, { json: opts.json })
       if (!ok) process.exit(1)
     } catch (err: any) {
       console.error(err.message)
@@ -74,11 +75,12 @@ withConfig(program.command('generate'))
 
 withConfig(program.command('diff'))
   .description('Show missing, extra, and invalid variables compared to the schema')
-  .action(async (opts: { config?: string }) => {
+  .option('--json', 'Output a single JSON object instead of human-readable text')
+  .action(async (opts: { config?: string; json?: boolean }) => {
     try {
       const configPath = resolveConfigPath(opts.config)
       const loaded = await loadConfig(configPath)
-      const ok = await runDiff(loaded)
+      const ok = await runDiff(loaded, { json: opts.json })
       if (!ok) process.exit(1)
     } catch (err: any) {
       console.error(err.message)

@@ -309,6 +309,14 @@ source: combinedSource({ path: '.env' })
 source: LocalEnvSource({ path: '.env' })
 ```
 
+**Picking a source per environment.** `combinedSource`/`LocalEnvSource` reads a `.env` file, which is the right default for local dev but fails (or silently reads nothing) in most containers and edge/serverless deployments, since there's no `.env` file on disk there — those platforms inject variables directly into `process.env`. Switch on `NODE_ENV` (or your platform's equivalent) so the same config works in both:
+
+```typescript
+source: process.env.NODE_ENV === 'production'
+  ? processSource()               // container/edge — no filesystem access needed
+  : combinedSource({ path: '.env' }) // local dev — reads .env, process.env overrides
+```
+
 ### Custom sources
 
 Implement `EnvSource` (read-only) or `WritableEnvSource` (read + write) to load from any backend:
@@ -356,6 +364,28 @@ export const { serverEnv } = config.load()
 ```
 
 Top-level `await` requires `"type": "module"` in `package.json` (ESM). CJS users need an async init wrapper.
+
+### Lazy loading
+
+`config.load()` validates immediately by default — correct for a real server boot, but it means merely *importing* a module that does `export const env = config.load()` throws if the environment isn't populated yet (a build step, a unit test importing unrelated exports from the same file, etc.), even if nothing ends up reading a variable. Pass `lazy: true` to defer both reading the source and validating until the first variable is actually read:
+
+```typescript
+export default defineEnv({
+  source: fileSource({ path: '.env' }),
+  lazy: true,
+  envSchema: { /* ... */ },
+})
+
+// env.ts
+export const env = config.load()   // never throws here, regardless of env state
+
+// elsewhere
+app.listen(env.PORT)               // throws HERE if PORT is missing/invalid — first real read
+```
+
+The result (or the thrown error) is memoized after that first read — it won't re-validate on every access, and a broken env stays broken rather than silently retrying.
+
+**Lazy requires a synchronous source.** A `Proxy` can't `await` inside its trap, so "resolve on first read" is incompatible with an async source's `load()` (Vault, Secrets Manager, etc.). TypeScript rejects `lazy: true` with an async source at the `defineEnv()` call itself; plain-JS callers get a clear runtime error the first time a variable is read instead.
 
 ---
 
@@ -446,6 +476,25 @@ npx envkit validate
   1 error found. Run `envkit setup` to fix.
 ```
 
+Pass `--json` for a single machine-readable object instead — useful for a custom CI reporter:
+
+```bash
+npx envkit validate --json
+```
+```json
+{
+  "success": false,
+  "errors": [{ "key": "JWT_SECRET", "message": "required but not set" }],
+  "values": {
+    "NODE_ENV": "development",
+    "PORT": 8080,
+    "DATABASE_URL": "postgresql://localhost/db",
+    "JWT_SECRET": null
+  }
+}
+```
+Secret fields are masked as `"[secret]"` in `values`, same as the human-readable output.
+
 ### `envkit generate`
 
 Generates a `.env.example` file from the schema. Real values are replaced with examples or placeholders. Secret fields get a comment instead of a value.
@@ -503,6 +552,20 @@ $ echo $?
 1
 ```
 
+`--json` works here too, printing `{ clean, missing, extra, invalid }`. Note `clean` follows the same rule as the exit code should — `missing`/`invalid` make it `false`; `extra` alone does not, since undeclared keys are a warning, not a failure.
+
+```bash
+npx envkit diff --json
+```
+```json
+{
+  "clean": false,
+  "missing": ["JWT_SECRET"],
+  "extra": ["OLD_API_KEY", "LEGACY_DB_HOST"],
+  "invalid": [{ "key": "PORT", "message": "expected number, got \"not-a-port\"" }]
+}
+```
+
 ---
 
 ## Recommended project setup
@@ -531,6 +594,30 @@ my-app/
 ```
 
 `predev` and `prebuild` run `envkit validate` automatically before every `dev` and `build` — the server won't start with a broken env.
+
+### Monorepos (pnpm workspaces, Turborepo)
+
+Config resolution (`--config`, or the default `envkit.config.ts` search) and `--output` on `generate` are both resolved relative to `process.cwd()` — the directory the CLI is actually invoked from, not the repo root. In a pnpm/Turborepo monorepo, `envkit` typically runs from a package directory (via that package's `package.json` scripts) while `envkit.config.ts` and `.env.example` might live at the workspace root instead. If your layout looks like:
+
+```
+repo-root/
+├── envkit.config.ts
+├── .env.example
+└── apps/
+    └── web/
+        └── package.json   ← "env:generate": "envkit generate"
+```
+
+then either run the command from the repo root, or point it at the right paths explicitly from the package's script:
+
+```json
+{
+  "scripts": {
+    "env:validate": "envkit validate --config ../../envkit.config.ts",
+    "env:generate": "envkit generate --config ../../envkit.config.ts --output ../../.env.example"
+  }
+}
+```
 
 ### CI / GitHub Actions
 
