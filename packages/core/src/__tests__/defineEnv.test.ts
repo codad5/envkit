@@ -1,4 +1,4 @@
-import { describe, it, expect, expectTypeOf } from 'vitest'
+import { describe, it, expect, expectTypeOf, vi } from 'vitest'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -352,5 +352,133 @@ describe('defineEnv — visibility split', () => {
       else (globalThis as any).window = originalWindow
       delete process.env['ENVKIT_SERVER_ONLY']
     }
+  })
+})
+
+describe('defineEnv — lazy option', () => {
+  it('load() does not read the source or validate until a property is read', () => {
+    const loadSpy = vi.fn((): Record<string, string> => ({}))
+    // Required var deliberately absent — proves nothing was validated yet.
+    const config = defineEnv({
+      source: { load: loadSpy },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_REQUIRED: { type: 'string', description: 'Required', required: true },
+      },
+    })
+
+    const env = config.load() // must not throw
+    expect(loadSpy).not.toHaveBeenCalled()
+
+    expect(() => (env as any).ENVKIT_LAZY_REQUIRED).toThrow('[envkit]')
+    expect(loadSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('resolves and returns the correct value on first access', () => {
+    const config = defineEnv({
+      source: { load: () => ({ ENVKIT_LAZY_PORT: '4000' }) },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_PORT: { type: 'number', description: 'Port', required: true },
+      },
+    })
+
+    const env = config.load()
+    expect(env.ENVKIT_LAZY_PORT).toBe(4000)
+  })
+
+  it('memoizes a successful resolution — source.load() is called exactly once', () => {
+    const loadSpy = vi.fn(() => ({ ENVKIT_LAZY_HOST: 'localhost' }))
+    const config = defineEnv({
+      source: { load: loadSpy },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_HOST: { type: 'string', description: 'Host', required: true },
+      },
+    })
+
+    const env = config.load()
+    expect(env.ENVKIT_LAZY_HOST).toBe('localhost')
+    expect(env.ENVKIT_LAZY_HOST).toBe('localhost')
+    expect(Object.keys(env)).toContain('ENVKIT_LAZY_HOST')
+    expect(loadSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('memoizes a failed resolution — repeated access throws the same error without re-reading the source', () => {
+    const loadSpy = vi.fn((): Record<string, string> => ({}))
+    const config = defineEnv({
+      source: { load: loadSpy },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_MISSING: { type: 'string', description: 'Missing', required: true },
+      },
+    })
+
+    const env = config.load()
+    let firstError: unknown
+    try {
+      void (env as any).ENVKIT_LAZY_MISSING
+    } catch (err) {
+      firstError = err
+    }
+    expect(firstError).toBeInstanceOf(Error)
+
+    expect(() => (env as any).ENVKIT_LAZY_MISSING).toThrow(firstError as Error)
+    expect(loadSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('`has` and `ownKeys` traps also trigger resolution (spread / Object.keys / "in")', () => {
+    const loadSpy = vi.fn(() => ({ ENVKIT_LAZY_SPREAD: 'x' }))
+    const config = defineEnv({
+      source: { load: loadSpy },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_SPREAD: { type: 'string', description: 'X', required: true },
+      },
+    })
+
+    const env = config.load()
+    expect('ENVKIT_LAZY_SPREAD' in (env as object)).toBe(true)
+    expect({ ...env }).toEqual({ ENVKIT_LAZY_SPREAD: 'x' })
+    expect(loadSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('throws at first access (not at load()) when the source is async', () => {
+    const config = defineEnv({
+      source: { load: () => Promise.resolve({ ENVKIT_LAZY_ASYNC: 'x' }) },
+      lazy: true as any, // async + lazy is a compile error by design — bypassed here to test the runtime guard for plain-JS callers
+      envSchema: {
+        ENVKIT_LAZY_ASYNC: { type: 'string', description: 'X', required: true },
+      },
+    })
+
+    const env = config.load() // must not throw — laziness means nothing ran yet
+    expect(() => (env as any).ENVKIT_LAZY_ASYNC).toThrow('requires a synchronous source')
+  })
+
+  it('serverEnv-equivalent unknown-key guard still applies once resolved', () => {
+    const config = defineEnv({
+      source: { load: () => ({ ENVKIT_LAZY_KNOWN: 'x' }) },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_KNOWN: { type: 'string', description: 'Known', required: true },
+      },
+    })
+
+    const env = config.load() as any
+    expect(() => env.UNKNOWN_KEY).toThrow(ReferenceError)
+  })
+
+  it('defaults to eager (non-lazy) when `lazy` is omitted', () => {
+    const loadSpy = vi.fn((): Record<string, string> => ({}))
+    expect(() =>
+      defineEnv({
+        source: { load: loadSpy },
+        envSchema: {
+          ENVKIT_EAGER_REQUIRED: { type: 'string', description: 'Required', required: true },
+        },
+      }).load()
+    ).toThrow('[envkit]')
+    expect(loadSpy).toHaveBeenCalledTimes(1)
   })
 })

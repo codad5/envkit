@@ -134,6 +134,11 @@ Returns an `EnvKitInstance` with:
 - `.load()` — validates all variables, runs computed fields, and returns
   `{ serverEnv, publicEnv }` (see Visibility above); throws on failure
 
+`config.lazy?: boolean` (default `false`) defers reading the source and
+validating until the first variable is actually read, instead of at the
+`load()` call. Only valid with a synchronous source — TypeScript rejects
+`lazy: true` paired with an async source at the `defineEnv()` call itself.
+
 ### `loadRawEnv(source, cwd?)`
 
 Load raw string env vars according to a `SourceConfig`. Returns `Record<string, string>`.
