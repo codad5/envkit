@@ -60,21 +60,60 @@ export default defineEnv({
 ```typescript
 import config from './envkit.config'
 
-export const env = config.load()
-// Type inferred as:
-// {
-//   PORT:         number
-//   NODE_ENV:     'development' | 'staging' | 'production'
-//   DATABASE_URL: string
-// }
+export const { serverEnv, publicEnv } = config.load()
+// serverEnv: every declared field (PORT, NODE_ENV, DATABASE_URL, ...)
+// publicEnv: only fields marked `visibility: 'public'` in the schema
 ```
 
 ### 3. Use
 
 ```typescript
-import { env } from './env'
-app.listen(env.PORT)
+import { serverEnv } from './env'
+app.listen(serverEnv.PORT)
 ```
+
+## Visibility — safe to read in the browser?
+
+By default every field is `visibility: 'server'` — reachable only through
+`serverEnv`, which **throws immediately** if accessed once `typeof window !==
+'undefined'`. Mark a field `visibility: 'public'` to also expose it via
+`publicEnv`, which has no such guard and is safe to import into
+client-bundled code (a Next.js client component, etc.):
+
+```typescript
+envSchema: {
+  DATABASE_URL: { type: 'string', description: '...', required: true, secret: true },
+  APP_URL:      { type: 'url', description: '...', required: true, visibility: 'public' },
+}
+```
+
+`secret: true` combined with `visibility: 'public'` is rejected at compile
+time — that combination is always a mistake.
+
+**What this guard is, and isn't.** The `serverEnv` throw is a fail-fast
+check against the mistake of importing `serverEnv` into client-reachable
+code — it turns a silent leak into an immediate crash in dev/CI. It is
+**not** a confidentiality boundary: if a secret's value is already present
+in a browser-executed module, it is already in the shipped bundle and
+readable via devtools regardless of what any runtime check does. The actual
+protection is making sure `serverEnv` is never imported by code that ends up
+in a client bundle in the first place.
+
+It's also worth knowing the check itself is a plain
+`typeof window !== 'undefined'` — it recognizes "browser vs. Node," not any
+particular framework's dev/prod distinction (that's a separate, ordinary
+schema field like `NODE_ENV` above, with no special handling from envkit).
+
+**Bundler inlining.** Next.js/Vite expose public env vars by statically
+replacing the literal text `process.env.NEXT_PUBLIC_X` at build time.
+Reached through an object instead — `publicEnv.NEXT_PUBLIC_X` — there is
+nothing for the bundler to statically replace, so it evaluates to `undefined`
+in the browser. This is a bundler constraint, not specific to envkit — the
+same issue affects any library that hands you public vars as object
+properties. If your bundler requires literal `process.env.X` references,
+keep using `process.env.NEXT_PUBLIC_X` directly for those specific reads and
+use `publicEnv`/`serverEnv` for everything else (validation, defaults,
+non-bundled contexts).
 
 ## Source types
 
@@ -92,7 +131,8 @@ Returns an `EnvKitInstance` with:
 - `.schema` — the raw schema object
 - `.groups` — the group definitions
 - `.source` — the resolved source config
-- `.load()` — validates all variables and returns the fully typed env object; throws on failure
+- `.load()` — validates all variables, runs computed fields, and returns
+  `{ serverEnv, publicEnv }` (see Visibility above); throws on failure
 
 ### `loadRawEnv(source, cwd?)`
 

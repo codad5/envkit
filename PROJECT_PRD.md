@@ -236,26 +236,31 @@ export default defineEnv({
 // CLI never imports this file
 import config from './envkit.config'
 
-export const env = config.load()
-//           ^^^
-//           Type is fully inferred — no annotation needed:
-//           {
-//             PORT:         number
-//             NODE_ENV:     'development' | 'staging' | 'production'
-//             DATABASE_URL: string
-//           }
+export const { serverEnv, publicEnv } = config.load()
+//                  ^^^^^^^^^  ^^^^^^^^^
+//                  Fully inferred — no annotation needed. serverEnv has every
+//                  field; publicEnv only fields marked `visibility: 'public'`.
 ```
 
 ```typescript
 // src/server.ts — always import from env.ts, never from envkit.config.ts
-import { env } from './env'
+import { serverEnv } from './env'
 
-app.listen(env.PORT)          // number
-console.log(env.NODE_ENV)     // 'development' | 'staging' | 'production'
-console.log(env.DATABASE_URL) // string
+app.listen(serverEnv.PORT)          // number
+console.log(serverEnv.NODE_ENV)     // 'development' | 'staging' | 'production'
+console.log(serverEnv.DATABASE_URL) // string
 ```
 
 `config.load()` validates all variables at module load time. If any required variable is missing or the wrong type, it throws immediately before the app handles any request — fail fast, never silently.
+
+Every field defaults to `visibility: 'server'`, reachable only via `serverEnv`
+— which throws if read once `typeof window !== 'undefined'`. Mark a field
+`visibility: 'public'` to also expose it via `publicEnv`, safe for
+client-bundled code. This guard is fail-fast against the *mistake* of
+importing `serverEnv` client-side; it is not a confidentiality boundary — a
+value already present in a browser-executed module is already shipped and
+readable via devtools no matter what the runtime check does. See
+`packages/core/README.md` for the full writeup.
 
 ---
 
@@ -645,11 +650,12 @@ my-app/
 
 ```typescript
 // src/server.ts
-import env from '../envkit.config'  // or loadEnv() for eager validation
+import config from '../envkit.config'
 
+const { serverEnv } = config.load()
 const app = express()
-app.listen(env.PORT, () => {
-  console.log(`Running in ${env.NODE_ENV} on port ${env.PORT}`)
+app.listen(serverEnv.PORT, () => {
+  console.log(`Running in ${serverEnv.NODE_ENV} on port ${serverEnv.PORT}`)
 })
 ```
 

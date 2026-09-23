@@ -49,6 +49,8 @@ envkit generate --output .env.staging.example
 ### `envkit diff`
 
 Shows missing required vars, extra vars not in the schema, and vars that fail type validation.
+Exits with code 1 if anything is missing or invalid (CI-safe, like `validate`). Extra/undeclared
+vars alone are a warning and don't affect the exit code.
 
 ```bash
 envkit diff

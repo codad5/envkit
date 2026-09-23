@@ -50,8 +50,8 @@ describe('defineEnv', () => {
       },
     })
     process.env['ENVKIT_TEST_PORT'] = '4321'
-    const env = config.load()
-    expect(env.ENVKIT_TEST_PORT).toBe(4321)
+    const { serverEnv } = config.load()
+    expect(serverEnv.ENVKIT_TEST_PORT).toBe(4321)
     delete process.env['ENVKIT_TEST_PORT']
   })
 
@@ -74,8 +74,8 @@ describe('defineEnv', () => {
       },
     })
     delete process.env['ENVKIT_OPT_PORT']
-    const env = config.load()
-    expect(env.ENVKIT_OPT_PORT).toBe(3000)
+    const { serverEnv } = config.load()
+    expect(serverEnv.ENVKIT_OPT_PORT).toBe(3000)
   })
 
   it('proxy throws for unknown key access', () => {
@@ -85,8 +85,8 @@ describe('defineEnv', () => {
         ENVKIT_KNOWN: { type: 'string', description: 'Known', required: false, default: 'x' },
       },
     })
-    const env = config.load() as any
-    expect(() => env.UNKNOWN_KEY).toThrow(ReferenceError)
+    const { serverEnv } = config.load() as any
+    expect(() => serverEnv.UNKNOWN_KEY).toThrow(ReferenceError)
   })
 
   it('load() infers zod schema output types', () => {
@@ -140,16 +140,16 @@ describe('defineEnv', () => {
     delete process.env['ENVKIT_NODE_ENV']
     delete process.env['ENVKIT_PORT']
 
-    const env = config.load()
-    expectTypeOf(env.ENVKIT_DATABASE_URL).toEqualTypeOf<string>()
-    expectTypeOf(env.ENVKIT_NODE_ENV).toEqualTypeOf<'development' | 'production'>()
-    expectTypeOf(env.ENVKIT_PORT).toEqualTypeOf<number>()
-    expectTypeOf(env.ENVKIT_RETRIES).toEqualTypeOf<number>()
+    const { serverEnv } = config.load()
+    expectTypeOf(serverEnv.ENVKIT_DATABASE_URL).toEqualTypeOf<string>()
+    expectTypeOf(serverEnv.ENVKIT_NODE_ENV).toEqualTypeOf<'development' | 'production'>()
+    expectTypeOf(serverEnv.ENVKIT_PORT).toEqualTypeOf<number>()
+    expectTypeOf(serverEnv.ENVKIT_RETRIES).toEqualTypeOf<number>()
 
-    expect(env.ENVKIT_DATABASE_URL).toBe('https://example.com/db')
-    expect(env.ENVKIT_NODE_ENV).toBe('development')
-    expect(env.ENVKIT_PORT).toBe(3000)
-    expect(env.ENVKIT_RETRIES).toBe(3)
+    expect(serverEnv.ENVKIT_DATABASE_URL).toBe('https://example.com/db')
+    expect(serverEnv.ENVKIT_NODE_ENV).toBe('development')
+    expect(serverEnv.ENVKIT_PORT).toBe(3000)
+    expect(serverEnv.ENVKIT_RETRIES).toBe(3)
 
     delete process.env['ENVKIT_DATABASE_URL']
   })
@@ -174,8 +174,8 @@ describe('defineEnv — computed fields', () => {
       },
     })
 
-    const env = config.load()
-    expect(env.APP_URL).toBe('localhost:3000')
+    const { serverEnv } = config.load()
+    expect(serverEnv.APP_URL).toBe('localhost:3000')
 
     delete process.env['ENVKIT_HOST']
     delete process.env['ENVKIT_PORT']
@@ -196,8 +196,8 @@ describe('defineEnv — computed fields', () => {
       },
     })
 
-    const env = config.load()
-    expect(env.METRICS_PORT).toBe(8081)
+    const { serverEnv } = config.load()
+    expect(serverEnv.METRICS_PORT).toBe(8081)
 
     delete process.env['ENVKIT_BASE_PORT']
   })
@@ -219,10 +219,10 @@ describe('defineEnv — computed fields', () => {
       },
     })
 
-    const env = config.load()
-    expect(env.BASE_URL).toBe('https://example.com')
-    expect(env.API_URL).toBe('https://example.com/api')
-    expect(env.HEALTH_URL).toBe('https://example.com/health')
+    const { serverEnv } = config.load()
+    expect(serverEnv.BASE_URL).toBe('https://example.com')
+    expect(serverEnv.API_URL).toBe('https://example.com/api')
+    expect(serverEnv.HEALTH_URL).toBe('https://example.com/health')
 
     delete process.env['ENVKIT_SCHEME']
     delete process.env['ENVKIT_DOMAIN']
@@ -263,7 +263,94 @@ describe('defineEnv — computed fields', () => {
         ENVKIT_Y: { type: 'string', description: 'Y', required: false, default: 'y' },
       },
     })
-    const env = config.load()
-    expect(env.ENVKIT_Y).toBe('y')
+    const { serverEnv } = config.load()
+    expect(serverEnv.ENVKIT_Y).toBe('y')
+  })
+})
+
+describe('defineEnv — visibility split', () => {
+  it('serverEnv exposes every field; publicEnv exposes only visibility: "public" ones', () => {
+    process.env['ENVKIT_APP_URL'] = 'https://example.com'
+    process.env['ENVKIT_DB_URL'] = 'postgresql://localhost/db'
+
+    const config = defineEnv({
+      source: processSource(),
+      envSchema: {
+        ENVKIT_APP_URL: { type: 'url', description: 'App URL', required: true, visibility: 'public' },
+        ENVKIT_DB_URL: { type: 'string', description: 'DB URL', required: true, secret: true },
+      },
+    })
+
+    const { serverEnv, publicEnv } = config.load()
+
+    expectTypeOf(publicEnv).toHaveProperty('ENVKIT_APP_URL')
+    expectTypeOf(publicEnv).not.toHaveProperty('ENVKIT_DB_URL')
+    expectTypeOf(serverEnv).toHaveProperty('ENVKIT_DB_URL')
+
+    expect(publicEnv.ENVKIT_APP_URL).toBe('https://example.com')
+    expect(serverEnv.ENVKIT_APP_URL).toBe('https://example.com')
+    expect(serverEnv.ENVKIT_DB_URL).toBe('postgresql://localhost/db')
+    // publicEnv's proxy has the same unknown-key guard as serverEnv — a server-only
+    // field is simply absent from its data, so accessing it throws like any typo.
+    expect(() => (publicEnv as any).ENVKIT_DB_URL).toThrow(ReferenceError)
+
+    delete process.env['ENVKIT_APP_URL']
+    delete process.env['ENVKIT_DB_URL']
+  })
+
+  it('defaults to server-only visibility when unspecified', () => {
+    process.env['ENVKIT_DEFAULT_VIS'] = 'x'
+
+    const config = defineEnv({
+      source: processSource(),
+      envSchema: {
+        ENVKIT_DEFAULT_VIS: { type: 'string', description: 'X', required: true },
+      },
+    })
+
+    const { publicEnv } = config.load() as any
+    expect(() => publicEnv.ENVKIT_DEFAULT_VIS).toThrow(ReferenceError)
+
+    delete process.env['ENVKIT_DEFAULT_VIS']
+  })
+
+  it('throws at define time when a field is both secret and public', () => {
+    expect(() =>
+      defineEnv({
+        source: processSource(),
+        envSchema: {
+          ENVKIT_BAD: {
+            type: 'string',
+            description: 'Bad',
+            required: true,
+            secret: true,
+            visibility: 'public',
+          } as any,
+        },
+      })
+    ).toThrow('[envkit] field')
+  })
+
+  it('serverEnv throws on any access when accessed from a simulated browser context', () => {
+    process.env['ENVKIT_SERVER_ONLY'] = 'secret-value'
+
+    const config = defineEnv({
+      source: processSource(),
+      envSchema: {
+        ENVKIT_SERVER_ONLY: { type: 'string', description: 'Secret', required: true },
+      },
+    })
+
+    const { serverEnv } = config.load()
+
+    const originalWindow = (globalThis as any).window
+    ;(globalThis as any).window = {}
+    try {
+      expect(() => (serverEnv as any).ENVKIT_SERVER_ONLY).toThrow(ReferenceError)
+    } finally {
+      if (originalWindow === undefined) delete (globalThis as any).window
+      else (globalThis as any).window = originalWindow
+      delete process.env['ENVKIT_SERVER_ONLY']
+    }
   })
 })

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `visibility: 'server' | 'public'` field option (default `'server'`) — `config.load()` now returns `{ serverEnv, publicEnv }` instead of a flat env object. `serverEnv` carries every field and throws on read once `typeof window !== 'undefined'`; `publicEnv` carries only `visibility: 'public'` fields and is safe to import into client-bundled code (Next.js/Vite/etc.)
+- `secret: true` combined with `visibility: 'public'` is now rejected both at compile time (TypeScript) and at `defineEnv()` call time (plain JS) — that combination is always a mistake
+- `createServerEnvProxy` exported from `envkit-core` for custom source/wrapper authors who need the same browser guard
+
+### Changed
+- **Breaking:** `defineEnv().load()` returns `{ serverEnv, publicEnv }` instead of a flat env object. Update `const env = config.load()` to `const { serverEnv } = config.load()` (or destructure `publicEnv` too for client-safe fields)
+- `envkit diff` now exits with code 1 when any variable is **Missing** or **Invalid**, matching `envkit validate`'s existing behavior — previously it always exited 0 regardless of what it reported, so it couldn't gate CI. **Extra** (undeclared) keys alone remain exit 0
+
+### Fixed
+- `ZodLike` no longer types Zod 3's internal `_def` shape (`typeName`/`innerType`) as a requirement — assigning a Zod 4 schema (e.g. `schema: z.string().startsWith(...)`) to a field previously failed `tsc` even though it validated correctly at runtime. `ZodLike` is now just `{ parse, safeParse }`; Zod-version-specific `_def` shapes are read defensively at runtime in both majors
+
 ## [0.2.2] - 2026-06-18
 
 ### Fixed
@@ -88,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Computed callback `env` parameter was typed as `any` — now fully inferred from schema
 - Inline enum `string[]` fields now support literal union inference with `as const`
 
-[Unreleased]: https://github.com/codad5/envkit/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/codad5/envkit/compare/v0.2.2...HEAD
 [0.2.1]: https://github.com/codad5/envkit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/codad5/envkit/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/codad5/envkit/compare/v0.1.0...v0.1.1

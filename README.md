@@ -30,12 +30,13 @@ npx envkit diff     # show missing, extra, and invalid vars
 | `.env.example` generation | ✅ | ❌ | ❌ | manual | ❌ |
 | Diff command (missing / extra / invalid) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Computed / derived fields | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Client/server visibility split (`serverEnv`/`publicEnv`) | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Group organisation (for CLI & docs) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Proxy (throws on unknown key access) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `howToGet` hints in wizard & example | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Runtime only (no build step in library) | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-**Pick envkit if** you want one config file that powers both runtime validation _and_ developer tooling (setup wizard, generated `.env.example`, CI diff).
+**Pick envkit if** you want one config file that powers both runtime validation _and_ developer tooling (setup wizard, generated `.env.example`, CI diff) — plus a client/server visibility split for browser frameworks, without giving up the CLI.
 
 **Pick t3-env if** you're already all-in on Zod and want the tightest possible integration with Next.js / tRPC conventions.
 
@@ -122,24 +123,20 @@ export default defineEnv({
 import config from './envkit.config'
 
 // Validates at module load time — throws if anything is missing or invalid.
-export const env = config.load()
-//           ^^^
-//           Fully inferred type — no annotation needed:
-//           {
-//             NODE_ENV:     'development' | 'staging' | 'production'
-//             PORT:         number
-//             DATABASE_URL: string
-//             JWT_SECRET:   string
-//           }
+export const { serverEnv, publicEnv } = config.load()
+//                  ^^^^^^^^^  ^^^^^^^^^
+//                  Fully inferred, no annotation needed. serverEnv has every
+//                  field; publicEnv only fields marked `visibility: 'public'`
+//                  (see "Visibility" below) — here, none, so publicEnv is `{}`.
 ```
 
 ### 4. Use it
 
 ```typescript
-import { env } from './env'
+import { serverEnv } from './env'
 
-app.listen(env.PORT)
-console.log(`Running in ${env.NODE_ENV}`)
+app.listen(serverEnv.PORT)
+console.log(`Running in ${serverEnv.NODE_ENV}`)
 ```
 
 ### 5. Set up your `.env` interactively
@@ -197,6 +194,7 @@ Every field in `envSchema` is either a **plain field** (uses `type`) or a **Zod 
 | `default` | matches `type` | Default if not set. Eliminates `undefined` from the inferred type. |
 | `group` | `GroupSlug` | Must match a slug from `envGroups` — TypeScript error if the slug doesn't exist. |
 | `secret` | `boolean` | Masked in CLI output, omitted from `.env.example`. |
+| `visibility` | `'server' \| 'public'` | Default `'server'`. See [Visibility](#visibility) below. |
 | `example` | `string` | Shown in wizard and `.env.example`. |
 | `multiline` | `boolean` | Allow `\n` in value (quoted in output file). |
 | `minLength` / `maxLength` | `number` | String length constraints (only on `type: 'string'`). |
@@ -220,6 +218,8 @@ DATABASE_URL: {
 
 When `schema` is present, `type`, `required`, `default`, `min`, `max`, `minLength`, `maxLength`, and `pattern` are all forbidden — TypeScript will error. The Zod schema is the single source of truth.
 
+Both Zod 3 and Zod 4 are supported — envkit only relies on `parse`/`safeParse`, not Zod's internal `_def` shape (which changed between majors).
+
 ```typescript
 // Plain field equivalents → Zod equivalents
 { type: 'string', required: true  }              →  z.string()
@@ -237,6 +237,54 @@ z.number().int().positive()
 z.string().trim().toLowerCase()     // transforms
 z.string().refine(v => v !== 'admin', 'Cannot use "admin"')
 ```
+
+---
+
+## Visibility
+
+By default every field is `visibility: 'server'` — reachable only through
+`serverEnv`, which **throws immediately** if read once `typeof window !==
+'undefined'`. Mark a field `visibility: 'public'` to also expose it via
+`publicEnv`, safe to import into client-bundled code (a Next.js client
+component, a Vite app, etc.):
+
+```typescript
+envSchema: {
+  DATABASE_URL: { type: 'string', description: 'DB conn string', required: true, secret: true },
+  APP_URL:      { type: 'url',    description: 'Public base URL', required: true, visibility: 'public' },
+}
+
+const { serverEnv, publicEnv } = config.load()
+serverEnv.DATABASE_URL   // works on the server; throws if read from a browser context
+publicEnv.APP_URL        // works everywhere
+publicEnv.DATABASE_URL   // TypeScript error — not a key of publicEnv
+```
+
+`secret: true` + `visibility: 'public'` together is rejected at compile time
+(and at `defineEnv()` call time for plain-JS users) — a secret exposed to the
+browser is always a mistake, never a valid config.
+
+**What the `serverEnv` guard is, and isn't.** It's a fail-fast check against
+*importing `serverEnv` into client-reachable code* — it turns a silent leak
+into an immediate crash in dev/CI, instead of a secret quietly ending up in a
+shipped bundle. It is **not** a confidentiality boundary: if a secret's value
+is already present in a browser-executed module, it's already in the bundle
+and readable via devtools regardless of any runtime check. The real
+protection is upstream — never let `serverEnv` be imported by anything that
+ends up in a client bundle.
+
+The check itself is a plain `typeof window !== 'undefined'` — it detects
+"browser vs. Node," not a framework's dev/prod distinction. `NODE_ENV` (or
+similar) is just an ordinary schema field with no special handling.
+
+**Bundler inlining.** Next.js/Vite expose public env vars by statically
+replacing the literal text `process.env.NEXT_PUBLIC_X` at build time.
+`publicEnv.NEXT_PUBLIC_X` (an object property, not literal source text) has
+nothing for the bundler to replace, so it's `undefined` in the browser bundle.
+This affects every env library, not just envkit — if your bundler needs a
+literal reference, keep using `process.env.NEXT_PUBLIC_X` directly for that
+specific read, and reserve `publicEnv`/`serverEnv` for validation, defaults,
+and non-bundled contexts (Node scripts, server components, tests).
 
 ---
 
@@ -300,11 +348,11 @@ export function vaultSource(): EnvSource {
   }
 }
 
-// env.ts — TypeScript infers Promise<Env>, await is required
-export const env = await config.load()
+// env.ts — TypeScript infers Promise<{ serverEnv, publicEnv }>, await is required
+export const { serverEnv } = await config.load()
 
 // Sync source (file, process.env) — no await needed
-export const env = config.load()
+export const { serverEnv } = config.load()
 ```
 
 Top-level `await` requires `"type": "module"` in `package.json` (ESM). CJS users need an async init wrapper.
@@ -352,7 +400,14 @@ NAME: { type: 'string', min: 0, required: true }
 //                      ^^^ Error: 'min' not allowed on 'string'
 
 // ✗  Access a variable not in the schema
-env.NONEXISTENT  // Error: Property 'NONEXISTENT' does not exist
+serverEnv.NONEXISTENT  // Error: Property 'NONEXISTENT' does not exist
+
+// ✗  A secret exposed to the browser
+API_KEY: { type: 'string', required: true, secret: true, visibility: 'public' }
+//                                                        ^^^^^^^^^^^^^^^^^^^ Error
+
+// ✗  Reading a server-only field from publicEnv
+publicEnv.DATABASE_URL  // Error: Property 'DATABASE_URL' does not exist on publicEnv
 ```
 
 ---
@@ -428,6 +483,8 @@ PORT=3000
 ### `envkit diff`
 
 Shows what's missing, what's extra, and what's invalid compared to the schema.
+Exits with code 1 if anything is **Missing** or **Invalid** — safe for CI.
+**Extra** (undeclared) keys alone are a warning and don't fail the exit code.
 
 ```bash
 npx envkit diff
@@ -441,6 +498,9 @@ npx envkit diff
 
   Invalid:
     ✗  PORT    expected number, got "not-a-port"
+
+$ echo $?
+1
 ```
 
 ---
@@ -452,7 +512,7 @@ my-app/
 ├── envkit.config.ts   ← schema definition (committed)
 ├── .env               ← actual values    (gitignored)
 ├── .env.example       ← generated        (committed)
-├── env.ts             ← calls config.load(), throws on invalid
+├── env.ts             ← calls config.load() → { serverEnv, publicEnv }, throws on invalid
 └── src/
     └── server.ts      ← imports from env.ts
 ```
@@ -501,11 +561,11 @@ export default defineEnv({ ... })
 
 // env.ts — throws at startup if validation fails
 import config from './envkit.config'
-export const env = config.load()
+export const { serverEnv, publicEnv } = config.load()
 
-// src/server.ts — always import env from env.ts
-import { env } from './env'
-app.listen(env.PORT)
+// src/server.ts — always import serverEnv from env.ts, never envkit.config directly
+import { serverEnv } from './env'
+app.listen(serverEnv.PORT)
 ```
 
 ---

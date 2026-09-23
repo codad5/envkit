@@ -21,6 +21,7 @@ export default defineEnv({
       description: 'Application runtime environment',
       group: 'server',
       required: true,
+      visibility: 'public',
     },
     PORT: {
       type: 'number',
@@ -46,6 +47,8 @@ export default defineEnv({
       group: 'server',
       required: true,
       example: 'https://myapp.com',
+      // Safe to read from the browser — exposed via publicEnv as well as serverEnv.
+      visibility: 'public',
     },
     LOG_LEVEL: {
       type: ['error', 'warn', 'info', 'debug'] as const,

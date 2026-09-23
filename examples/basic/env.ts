@@ -3,11 +3,15 @@ import jsonConfig from './envkit.json.config'
 import asyncConfig from './envkit.async.config'
 
 // ── Sync sources — no await needed ───────────────────────────────────────────
-export const env     = config.load()
-export const jsonEnv = jsonConfig.load()
+// load() returns { serverEnv, publicEnv } — see envkit.config.ts, where
+// NODE_ENV and APP_URL are marked `visibility: 'public'` and so show up in
+// both; everything else (JWT_SECRET, DATABASE_URL, ...) is server-only and
+// only reachable via serverEnv.
+export const { serverEnv: env, publicEnv } = config.load()
+export const { serverEnv: jsonEnv } = jsonConfig.load()
 
 // ── Async source — await required (TypeScript enforces this) ─────────────────
-export const asyncEnv = await asyncConfig.load()
+export const { serverEnv: asyncEnv } = await asyncConfig.load()
 
 // ── envkit.config.ts (LocalEnvSource — reads .env) ───────────────────────────
 console.log('── envkit.config.ts ──────────────────────────────')
@@ -19,6 +23,10 @@ console.log('IS_DEVELOPMENT  :', env.IS_DEVELOPMENT)
 console.log('DATABASE_URL_SAFE:', env.DATABASE_URL_SAFE)
 console.log('CORS_ORIGIN     :', env.CORS_ORIGIN)
 console.log('OAUTH_ENABLED   :', env.OAUTH_ENABLED)
+console.log('--- publicEnv (safe to import client-side) ---')
+console.log('NODE_ENV        :', publicEnv.NODE_ENV)
+console.log('APP_URL         :', publicEnv.APP_URL)
+// publicEnv.JWT_SECRET would throw ReferenceError — it's not declared public.
 
 // ── envkit.json.config.ts (custom jsonSource — reads env.json) ────────────────
 console.log('\n── envkit.json.config.ts ─────────────────────────')

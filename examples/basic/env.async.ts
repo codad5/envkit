@@ -5,7 +5,7 @@ import config from './envkit.async.config'
 //
 // Top-level await works in ESM ("type": "module" in package.json).
 // CJS users need an async init wrapper instead.
-export const env = await config.load()
+export const { serverEnv: env } = await config.load()
 
 // env is fully typed — same inference as the sync case:
 //   env.NODE_ENV  →  'development' | 'staging' | 'production'
