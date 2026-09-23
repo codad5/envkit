@@ -56,17 +56,22 @@ function validateZodField(
   return { value: result.data }
 }
 
-/** Attempt to detect the Zod type and pre-coerce the string value */
+/**
+ * Attempt to detect the Zod type and pre-coerce the string value.
+ * `_def` isn't part of `ZodLike` — Zod 3 (`_def.typeName`, e.g. "ZodNumber")
+ * and Zod 4 (`_def.type`, e.g. "number") shape it differently — so it's read
+ * defensively here rather than assumed.
+ */
 function coerceForZod(raw: string, schema: ZodLike): unknown {
-  const typeName = schema._def?.typeName ?? ''
-  const innerTypeName = schema._def?.innerType?._def?.typeName ?? ''
-  const name = typeName || innerTypeName
+  const def = (schema as { _def?: Record<string, unknown> })._def
+  const rawName = (def?.['typeName'] ?? def?.['type'] ?? '') as string
+  const name = rawName.replace(/^Zod/, '').toLowerCase()
+  const innerType = def?.['innerType'] as ZodLike | undefined
 
-  if (name === 'ZodNumber') return Number(raw)
-  if (name === 'ZodBoolean') return raw === 'true' || raw === '1'
-  if (name === 'ZodOptional' || name === 'ZodDefault') {
-    const inner = schema._def?.innerType
-    if (inner) return coerceForZod(raw, inner)
+  if (name === 'number') return Number(raw)
+  if (name === 'boolean') return raw === 'true' || raw === '1'
+  if ((name === 'optional' || name === 'default') && innerType) {
+    return coerceForZod(raw, innerType)
   }
   return raw
 }

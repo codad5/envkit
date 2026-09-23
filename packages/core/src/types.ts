@@ -18,15 +18,15 @@ export type PrimitiveTypeMap = {
   json: Record<string, unknown>
 }
 
-/** Duck-typed to avoid importing ZodType (zod stays a peer dep) */
+/**
+ * Duck-typed to avoid importing ZodType (zod stays a peer dep).
+ * Kept to the structural minimum shared by Zod 3 and Zod 4 — their `_def`
+ * internals are shaped differently (`typeName` vs `type`), so anything beyond
+ * parse/safeParse is read defensively at runtime rather than declared here.
+ */
 export type ZodLike = {
   parse: (value: unknown) => unknown
   safeParse: (value: unknown) => { success: boolean; data?: unknown; error?: unknown }
-  _def?: {
-    defaultValue?: () => unknown
-    innerType?: ZodLike
-    typeName?: string
-  }
 }
 
 export interface PlainEnvFieldDef<GroupSlug extends string = string> {

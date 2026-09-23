@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { z } from 'zod'
 import { validateEnv } from '../validator.js'
 import type { EnvFieldDef } from '../types.js'
 
@@ -173,5 +174,50 @@ describe('validateEnv — pattern validation', () => {
     }
     expect(validateEnv(schema, { SLUG: 'hello' }).success).toBe(true)
     expect(validateEnv(schema, { SLUG: 'HELLO' }).success).toBe(false)
+  })
+})
+
+describe('validateEnv — Zod 4 fields', () => {
+  it('assigns a real Zod 4 schema to `schema` (typechecks, per Finding 2b)', () => {
+    // Zod 4's `_def` shape (`{ type, checks }`) differs from Zod 3's
+    // (`{ typeName, innerType }`); this must compile without reaching into `_def`.
+    const schema: Record<string, EnvFieldDef> = {
+      DATABASE_URL: {
+        schema: z.string().startsWith('postgresql://'),
+        description: 'Database URL',
+      },
+    }
+    const good = validateEnv(schema, { DATABASE_URL: 'postgresql://localhost/db' })
+    expect(good.success).toBe(true)
+
+    const bad = validateEnv(schema, { DATABASE_URL: 'mysql://localhost/db' })
+    expect(bad.success).toBe(false)
+  })
+
+  it('coerces a Zod 4 number field from a raw string', () => {
+    const schema: Record<string, EnvFieldDef> = {
+      PORT: { schema: z.number().min(1024), description: 'Port' },
+    }
+    const result = validateEnv(schema, { PORT: '3000' })
+    expect(result.success).toBe(true)
+    expect(result.data?.['PORT']).toBe(3000)
+  })
+
+  it('coerces a Zod 4 boolean field from a raw string', () => {
+    const schema: Record<string, EnvFieldDef> = {
+      FLAG: { schema: z.boolean(), description: 'Flag' },
+    }
+    const result = validateEnv(schema, { FLAG: 'true' })
+    expect(result.success).toBe(true)
+    expect(result.data?.['FLAG']).toBe(true)
+  })
+
+  it('coerces through Zod 4 optional/default wrappers', () => {
+    const schema: Record<string, EnvFieldDef> = {
+      TIMEOUT: { schema: z.number().default(30), description: 'Timeout' },
+    }
+    const result = validateEnv(schema, { TIMEOUT: '60' })
+    expect(result.success).toBe(true)
+    expect(result.data?.['TIMEOUT']).toBe(60)
   })
 })
