@@ -60,20 +60,64 @@ function resolveEnv<S extends Record<string, EnvFieldDef<string>>, C>(
 }
 
 /**
- * Wraps `resolveEnv` in a Proxy that defers reading the source and validating
- * until the first property is actually read (get/has/ownKeys all trigger it),
- * memoizing the outcome — success or thrown error — after that first
- * resolution. This is what makes `lazy: true` work: merely importing a module
- * that does `export const env = config.load()` no longer throws just because
- * the environment isn't populated yet (e.g. during a build step or a unit
- * test); only actually reading a variable does.
+ * Wraps a resolved `{ serverEnv, publicEnv }` half (i.e. one of those two
+ * objects) in a Proxy that calls `ensureResolved()` — and so reads the
+ * source and validates — only when a property on *this specific half* is
+ * actually touched (get/has/ownKeys all trigger it), not when the half
+ * itself is merely obtained as a reference.
  *
- * Requires a synchronous source. A `Proxy` trap must return synchronously, so
- * "resolve on first read" is fundamentally incompatible with an async
- * source's `load()` — there's no way to await inside `get`. TypeScript users
- * get this rejected at `defineEnv()` call time (see the `lazy` field's
- * conditional type below); plain-JS callers get a clear throw here, at first
- * access, once the Promise is discovered.
+ * That distinction is why laziness has to live per-half rather than around
+ * the `{ serverEnv, publicEnv }` container as a whole: destructuring
+ * (`const { serverEnv, publicEnv } = config.load()`, the pattern this
+ * library's own docs recommend) performs a `[[Get]]` for each named
+ * property on whatever `load()` returned. If that container itself were the
+ * lazy thing, destructuring it would trigger full resolution immediately —
+ * exactly the import-time throw `lazy` exists to prevent — while looking to
+ * the caller like `lazy` simply doesn't work. Two independent proxies, each
+ * only reacting to reads of its own keys, means a bare destructure touches
+ * neither.
+ */
+function createLazyHalf(ensureResolved: () => any, half: 'serverEnv' | 'publicEnv'): any {
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (typeof prop === 'symbol') return undefined
+        if (prop === 'then' || prop === 'catch' || prop === 'finally') return undefined
+        return ensureResolved()[half][prop]
+      },
+      has(_target, prop) {
+        return prop in ensureResolved()[half]
+      },
+      ownKeys() {
+        return Reflect.ownKeys(ensureResolved()[half])
+      },
+      getOwnPropertyDescriptor(_target, prop) {
+        return Reflect.getOwnPropertyDescriptor(ensureResolved()[half], prop)
+      },
+    },
+  )
+}
+
+/**
+ * Returns `{ serverEnv, publicEnv }` immediately, each half backed by
+ * `createLazyHalf` above. Reading the source and validating is deferred to
+ * the first property actually read on *either* half, memoizing the outcome
+ * — success or thrown error — after that first resolution; both halves
+ * share the same memo, since they come from a single validation pass and
+ * touching either one shouldn't re-read the source or re-run computed
+ * fields. This is what makes `lazy: true` work: merely importing a module
+ * that does `export const { serverEnv, publicEnv } = config.load()` no
+ * longer throws just because the environment isn't populated yet (e.g.
+ * during a build step or a unit test); only actually reading a variable
+ * does.
+ *
+ * Requires a synchronous source. A `Proxy` trap must return synchronously,
+ * so "resolve on first read" is fundamentally incompatible with an async
+ * source's `load()` — there's no way to await inside `get`. TypeScript
+ * users get this rejected at `defineEnv()` call time (see the `lazy`
+ * field's conditional type below); plain-JS callers get a clear throw here,
+ * at first access, once the Promise is discovered.
  */
 function createLazyEnvProxy<S extends Record<string, EnvFieldDef<string>>, C>(
   schema: S,
@@ -114,25 +158,10 @@ function createLazyEnvProxy<S extends Record<string, EnvFieldDef<string>>, C>(
     return resolved
   }
 
-  return new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (typeof prop === 'symbol') return undefined
-        if (prop === 'then' || prop === 'catch' || prop === 'finally') return undefined
-        return ensureResolved()[prop]
-      },
-      has(_target, prop) {
-        return prop in ensureResolved()
-      },
-      ownKeys() {
-        return Reflect.ownKeys(ensureResolved())
-      },
-      getOwnPropertyDescriptor(_target, prop) {
-        return Reflect.getOwnPropertyDescriptor(ensureResolved(), prop)
-      },
-    },
-  )
+  return {
+    serverEnv: createLazyHalf(ensureResolved, 'serverEnv'),
+    publicEnv: createLazyHalf(ensureResolved, 'publicEnv'),
+  }
 }
 
 export function defineEnv<

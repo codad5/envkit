@@ -367,40 +367,69 @@ describe('defineEnv — lazy option', () => {
       },
     })
 
-    const env = config.load() // must not throw
+    const { serverEnv } = config.load() // must not throw
     expect(loadSpy).not.toHaveBeenCalled()
 
-    expect(() => (env as any).ENVKIT_LAZY_REQUIRED).toThrow('[envkit]')
+    expect(() => (serverEnv as any).ENVKIT_LAZY_REQUIRED).toThrow('[envkit]')
     expect(loadSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('resolves and returns the correct value on first access', () => {
+  it('destructuring { serverEnv, publicEnv } off load() does not itself trigger resolution', () => {
+    // The library's own docs recommend `const { serverEnv, publicEnv } =
+    // config.load()`. If laziness lived around that container instead of
+    // inside each half, this destructure alone would resolve everything —
+    // exactly the import-time throw `lazy` exists to prevent — while
+    // looking to the caller like `lazy` simply doesn't work.
+    const loadSpy = vi.fn((): Record<string, string> => ({}))
     const config = defineEnv({
-      source: { load: () => ({ ENVKIT_LAZY_PORT: '4000' }) },
+      source: { load: loadSpy },
       lazy: true,
       envSchema: {
-        ENVKIT_LAZY_PORT: { type: 'number', description: 'Port', required: true },
+        ENVKIT_LAZY_DESTRUCTURE: { type: 'string', description: 'X', required: true },
       },
     })
 
-    const env = config.load()
-    expect(env.ENVKIT_LAZY_PORT).toBe(4000)
+    const { serverEnv, publicEnv } = config.load()
+    expect(loadSpy).not.toHaveBeenCalled()
+
+    // Only an actual property read triggers it.
+    expect(() => (serverEnv as any).ENVKIT_LAZY_DESTRUCTURE).toThrow('[envkit]')
+    expect(loadSpy).toHaveBeenCalledTimes(1)
+    void publicEnv
   })
 
-  it('memoizes a successful resolution — source.load() is called exactly once', () => {
-    const loadSpy = vi.fn(() => ({ ENVKIT_LAZY_HOST: 'localhost' }))
+  it('resolves and returns the correct value on first access, for both halves', () => {
+    const config = defineEnv({
+      source: { load: () => ({ ENVKIT_LAZY_PORT: '4000', ENVKIT_LAZY_PUBLIC: 'ok' }) },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_PORT: { type: 'number', description: 'Port', required: true },
+        ENVKIT_LAZY_PUBLIC: { type: 'string', description: 'Public', required: true, visibility: 'public' },
+      },
+    })
+
+    const { serverEnv, publicEnv } = config.load()
+    expect(serverEnv.ENVKIT_LAZY_PORT).toBe(4000)
+    expect(publicEnv.ENVKIT_LAZY_PUBLIC).toBe('ok')
+  })
+
+  it('memoizes a successful resolution — source.load() is called exactly once across both halves', () => {
+    const loadSpy = vi.fn(() => ({ ENVKIT_LAZY_HOST: 'localhost', ENVKIT_LAZY_PUB: 'x' }))
     const config = defineEnv({
       source: { load: loadSpy },
       lazy: true,
       envSchema: {
         ENVKIT_LAZY_HOST: { type: 'string', description: 'Host', required: true },
+        ENVKIT_LAZY_PUB: { type: 'string', description: 'Pub', required: true, visibility: 'public' },
       },
     })
 
-    const env = config.load()
-    expect(env.ENVKIT_LAZY_HOST).toBe('localhost')
-    expect(env.ENVKIT_LAZY_HOST).toBe('localhost')
-    expect(Object.keys(env)).toContain('ENVKIT_LAZY_HOST')
+    const { serverEnv, publicEnv } = config.load()
+    expect(serverEnv.ENVKIT_LAZY_HOST).toBe('localhost')
+    expect(serverEnv.ENVKIT_LAZY_HOST).toBe('localhost')
+    expect(Object.keys(serverEnv)).toContain('ENVKIT_LAZY_HOST')
+    // Touching publicEnv after serverEnv reuses the same memoized resolution.
+    expect(publicEnv.ENVKIT_LAZY_PUB).toBe('x')
     expect(loadSpy).toHaveBeenCalledTimes(1)
   })
 
@@ -414,16 +443,16 @@ describe('defineEnv — lazy option', () => {
       },
     })
 
-    const env = config.load()
+    const { serverEnv } = config.load()
     let firstError: unknown
     try {
-      void (env as any).ENVKIT_LAZY_MISSING
+      void (serverEnv as any).ENVKIT_LAZY_MISSING
     } catch (err) {
       firstError = err
     }
     expect(firstError).toBeInstanceOf(Error)
 
-    expect(() => (env as any).ENVKIT_LAZY_MISSING).toThrow(firstError as Error)
+    expect(() => (serverEnv as any).ENVKIT_LAZY_MISSING).toThrow(firstError as Error)
     expect(loadSpy).toHaveBeenCalledTimes(1)
   })
 
@@ -443,10 +472,10 @@ describe('defineEnv — lazy option', () => {
       },
     })
 
-    const env = config.load()
+    const { serverEnv } = config.load()
     let firstCaught: unknown = 'not-thrown'
     try {
-      void (env as any).ENVKIT_LAZY_UNDEFINED_THROW
+      void (serverEnv as any).ENVKIT_LAZY_UNDEFINED_THROW
     } catch (err) {
       firstCaught = err
     }
@@ -456,7 +485,7 @@ describe('defineEnv — lazy option', () => {
     // indexing into an unresolved value.
     let secondCaught: unknown = 'not-thrown'
     try {
-      void (env as any).ENVKIT_LAZY_UNDEFINED_THROW
+      void (serverEnv as any).ENVKIT_LAZY_UNDEFINED_THROW
     } catch (err) {
       secondCaught = err
     }
@@ -474,9 +503,9 @@ describe('defineEnv — lazy option', () => {
       },
     })
 
-    const env = config.load()
-    expect('ENVKIT_LAZY_SPREAD' in (env as object)).toBe(true)
-    expect({ ...env }).toEqual({ ENVKIT_LAZY_SPREAD: 'x' })
+    const { serverEnv } = config.load()
+    expect('ENVKIT_LAZY_SPREAD' in (serverEnv as object)).toBe(true)
+    expect({ ...serverEnv }).toEqual({ ENVKIT_LAZY_SPREAD: 'x' })
     expect(loadSpy).toHaveBeenCalledTimes(1)
   })
 
@@ -489,11 +518,15 @@ describe('defineEnv — lazy option', () => {
       },
     })
 
-    const env = config.load() // must not throw — laziness means nothing ran yet
-    expect(() => (env as any).ENVKIT_LAZY_ASYNC).toThrow('requires a synchronous source')
+    // `as any`: the static type still says Promise<...> (InferLoad goes purely
+    // off the source's load() signature), but lazy:true's runtime bypass means
+    // it actually returns synchronously here — this test is deliberately
+    // exercising the plain-JS-only path, same as the `lazy: true as any` above.
+    const { serverEnv } = config.load() as any // must not throw — laziness means nothing ran yet
+    expect(() => serverEnv.ENVKIT_LAZY_ASYNC).toThrow('requires a synchronous source')
   })
 
-  it('serverEnv-equivalent unknown-key guard still applies once resolved', () => {
+  it('unknown-key guard still applies to serverEnv once resolved', () => {
     const config = defineEnv({
       source: { load: () => ({ ENVKIT_LAZY_KNOWN: 'x' }) },
       lazy: true,
@@ -502,8 +535,44 @@ describe('defineEnv — lazy option', () => {
       },
     })
 
-    const env = config.load() as any
-    expect(() => env.UNKNOWN_KEY).toThrow(ReferenceError)
+    const { serverEnv } = config.load() as any
+    expect(() => serverEnv.UNKNOWN_KEY).toThrow(ReferenceError)
+  })
+
+  it('window guard still applies to serverEnv once resolved, in a simulated browser context', () => {
+    const config = defineEnv({
+      source: { load: () => ({ ENVKIT_LAZY_SERVER_ONLY: 'secret-value' }) },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_SERVER_ONLY: { type: 'string', description: 'Secret', required: true },
+      },
+    })
+
+    const { serverEnv } = config.load()
+
+    const originalWindow = (globalThis as any).window
+    ;(globalThis as any).window = {}
+    try {
+      expect(() => (serverEnv as any).ENVKIT_LAZY_SERVER_ONLY).toThrow(ReferenceError)
+    } finally {
+      if (originalWindow === undefined) delete (globalThis as any).window
+      else (globalThis as any).window = originalWindow
+    }
+  })
+
+  it('publicEnv does not expose a server-only field even when lazy', () => {
+    const config = defineEnv({
+      source: { load: () => ({ ENVKIT_LAZY_SRV: 'x', ENVKIT_LAZY_PUB2: 'y' }) },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_SRV: { type: 'string', description: 'Server', required: true },
+        ENVKIT_LAZY_PUB2: { type: 'string', description: 'Public', required: true, visibility: 'public' },
+      },
+    })
+
+    const { publicEnv } = config.load() as any
+    expect(publicEnv.ENVKIT_LAZY_PUB2).toBe('y')
+    expect(() => publicEnv.ENVKIT_LAZY_SRV).toThrow(ReferenceError)
   })
 
   it('defaults to eager (non-lazy) when `lazy` is omitted', () => {
