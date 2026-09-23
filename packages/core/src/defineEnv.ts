@@ -82,11 +82,17 @@ function createLazyEnvProxy<S extends Record<string, EnvFieldDef<string>>, C>(
 ): any {
   let resolved: any
   let resolvedError: unknown
+  let hasError = false
   let isResolved = false
 
   function ensureResolved(): any {
     if (isResolved) {
-      if (resolvedError !== undefined) throw resolvedError
+      // A dedicated flag, not `resolvedError !== undefined` — a source or
+      // computed field is free to `throw undefined`, and treating that as
+      // "no cached error" would fall through to `resolved[prop]` on an
+      // undefined `resolved`, turning a clear validation error into an
+      // opaque TypeError on the *next* access.
+      if (hasError) throw resolvedError
       return resolved
     }
     try {
@@ -100,6 +106,7 @@ function createLazyEnvProxy<S extends Record<string, EnvFieldDef<string>>, C>(
       resolved = resolveEnv(schema, computedDefs, raw)
     } catch (err) {
       resolvedError = err
+      hasError = true
       isResolved = true
       throw err
     }

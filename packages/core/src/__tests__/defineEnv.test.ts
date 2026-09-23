@@ -427,6 +427,43 @@ describe('defineEnv — lazy option', () => {
     expect(loadSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('memoizes a failure even when the thrown value is `undefined` (not just Error instances)', () => {
+    // A source is free to throw anything, including `undefined` — the cached
+    // error must be tracked with a dedicated flag, not by checking
+    // `resolvedError !== undefined`, or this case falls through to reading a
+    // property off an unresolved `resolved` on the second access.
+    const loadSpy = vi.fn(() => {
+      throw undefined
+    })
+    const config = defineEnv({
+      source: { load: loadSpy as unknown as () => Record<string, string> },
+      lazy: true,
+      envSchema: {
+        ENVKIT_LAZY_UNDEFINED_THROW: { type: 'string', description: 'X', required: true },
+      },
+    })
+
+    const env = config.load()
+    let firstCaught: unknown = 'not-thrown'
+    try {
+      void (env as any).ENVKIT_LAZY_UNDEFINED_THROW
+    } catch (err) {
+      firstCaught = err
+    }
+    expect(firstCaught).toBeUndefined()
+
+    // Second access must re-throw `undefined` again, not a TypeError from
+    // indexing into an unresolved value.
+    let secondCaught: unknown = 'not-thrown'
+    try {
+      void (env as any).ENVKIT_LAZY_UNDEFINED_THROW
+    } catch (err) {
+      secondCaught = err
+    }
+    expect(secondCaught).toBeUndefined()
+    expect(loadSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('`has` and `ownKeys` traps also trigger resolution (spread / Object.keys / "in")', () => {
     const loadSpy = vi.fn(() => ({ ENVKIT_LAZY_SPREAD: 'x' }))
     const config = defineEnv({
