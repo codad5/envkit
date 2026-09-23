@@ -5,11 +5,13 @@ import type {
   EnvKitInstance,
   InferEnvSchema,
   InferComputedSchema,
+  LoadedEnv,
+  RejectSecretPublic,
 } from './types'
 import type { EnvSource } from './sources'
 import { fileSource } from './sources'
 import { validateEnv } from './validator'
-import { createEnvProxy } from './proxy'
+import { createEnvProxy, createServerEnvProxy } from './proxy'
 
 /**
  * Infers whether config.load() is sync or async based on the source.
@@ -21,12 +23,12 @@ type InferLoad<Src extends EnvSource, Env> =
 
 const DEFAULT_SOURCE = fileSource()
 
-/** Validate raw values, run computed fields, return the proxied env. */
+/** Validate raw values, run computed fields, return `{ serverEnv, publicEnv }`. */
 function resolveEnv<S extends Record<string, EnvFieldDef<string>>, C>(
   schema: S,
   computedDefs: C,
   raw: Record<string, string>,
-): any {
+): LoadedEnv<S, C extends Record<string, ComputedFieldDef<any>> ? C : Record<never, never>> {
   const result = validateEnv(schema, raw)
 
   if (!result.success) {
@@ -44,7 +46,17 @@ function resolveEnv<S extends Record<string, EnvFieldDef<string>>, C>(
     computedValues[key] = def.compute({ env: parsedEnv })
   }
 
-  return createEnvProxy({ ...parsedEnv, ...computedValues })
+  const publicData: Record<string, unknown> = {}
+  for (const [key, field] of Object.entries(schema)) {
+    if ((field as { visibility?: string }).visibility === 'public') {
+      publicData[key] = (parsedEnv as Record<string, unknown>)[key]
+    }
+  }
+
+  return {
+    serverEnv: createServerEnvProxy({ ...parsedEnv, ...computedValues }),
+    publicEnv: createEnvProxy(publicData),
+  } as any
 }
 
 export function defineEnv<
@@ -55,16 +67,18 @@ export function defineEnv<
 >(config: {
   source?: Src
   envGroups?: G
-  envSchema: S
+  // Mapped over S's own keys so inference of S is unaffected, but any field
+  // combining `secret: true` and `visibility: 'public'` fails to typecheck.
+  envSchema: { [K in keyof S]: RejectSecretPublic<S[K]> }
   // Intersection supplies contextual type for `env` in callbacks; C captures specific return types.
   computed?: C & Record<string, ComputedFieldDef<InferEnvSchema<S>>>
 }): Omit<EnvKitInstance<G, S, C>, 'load' | 'source'> & {
   readonly source: Src
-  load(): InferLoad<Src, InferEnvSchema<S> & InferComputedSchema<C>>
+  load(): InferLoad<Src, LoadedEnv<S, C>>
 } {
   const source = (config.source ?? DEFAULT_SOURCE) as Src
   const groups = (config.envGroups ?? []) as G
-  const schema = config.envSchema
+  const schema = config.envSchema as unknown as S
   const computedDefs = (config.computed ?? {}) as C
 
   // Runtime guard — catches key conflicts for both JS users and at test time.
@@ -74,6 +88,17 @@ export function defineEnv<
     throw new Error(
       `[envkit] computed key${conflicts.length > 1 ? 's' : ''} conflict with envSchema: ` +
       `${conflicts.map((k) => `"${k}"`).join(', ')}. Use a different name.`
+    )
+  }
+
+  // Runtime guard — the compile-time RejectSecretPublic check above only helps TS users.
+  const secretAndPublic = Object.entries(schema)
+    .filter(([, field]) => (field as any).secret === true && (field as any).visibility === 'public')
+    .map(([key]) => key)
+  if (secretAndPublic.length > 0) {
+    throw new Error(
+      `[envkit] field${secretAndPublic.length > 1 ? 's' : ''} cannot be both secret and public: ` +
+      `${secretAndPublic.map((k) => `"${k}"`).join(', ')}.`
     )
   }
 

@@ -1,7 +1,7 @@
 ﻿export { defineEnv } from './defineEnv'
 export { parseEnvFile } from './loader'
 export { validateEnv } from './validator'
-export { createEnvProxy } from './proxy'
+export { createEnvProxy, createServerEnvProxy } from './proxy'
 export {
   fileSource,
   processSource,
@@ -20,11 +20,15 @@ export type {
   PlainEnvFieldDef,
   ZodEnvFieldDef,
   ZodLike,
+  EnvVisibility,
   ComputedFieldDef,
   EnvKitConfig,
   EnvKitInstance,
+  LoadedEnv,
   InferEnvSchema,
+  InferPublicEnvSchema,
   InferComputedSchema,
+  RejectSecretPublic,
   ValidationResult,
   ValidationError,
 } from './types'

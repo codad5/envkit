@@ -18,16 +18,24 @@ export type PrimitiveTypeMap = {
   json: Record<string, unknown>
 }
 
-/** Duck-typed to avoid importing ZodType (zod stays a peer dep) */
+/**
+ * Duck-typed to avoid importing ZodType (zod stays a peer dep).
+ * Kept to the structural minimum shared by Zod 3 and Zod 4 — their `_def`
+ * internals are shaped differently (`typeName` vs `type`), so anything beyond
+ * parse/safeParse is read defensively at runtime rather than declared here.
+ */
 export type ZodLike = {
   parse: (value: unknown) => unknown
   safeParse: (value: unknown) => { success: boolean; data?: unknown; error?: unknown }
-  _def?: {
-    defaultValue?: () => unknown
-    innerType?: ZodLike
-    typeName?: string
-  }
 }
+
+/**
+ * Where this variable may be read from.
+ * `'server'` (the default) — only reachable via `serverEnv`, which throws if
+ * accessed from a browser context. `'public'` — also exposed via `publicEnv`,
+ * which is safe to import into client-bundled code.
+ */
+export type EnvVisibility = 'server' | 'public'
 
 export interface PlainEnvFieldDef<GroupSlug extends string = string> {
   /** Variable type. Use a readonly string[] for an inline enum literal union. */
@@ -41,6 +49,8 @@ export interface PlainEnvFieldDef<GroupSlug extends string = string> {
   required: boolean
   multiline?: boolean
   secret?: boolean
+  /** @default 'server' */
+  visibility?: EnvVisibility
   example?: string
   minLength?: number
   maxLength?: number
@@ -63,12 +73,24 @@ export interface ZodEnvFieldDef<GroupSlug extends string = string> {
   howToGet?: string
   group?: GroupSlug
   secret?: boolean
+  /** @default 'server' */
+  visibility?: EnvVisibility
   example?: string
 }
 
 export type EnvFieldDef<GroupSlug extends string = string> =
   | PlainEnvFieldDef<GroupSlug>
   | ZodEnvFieldDef<GroupSlug>
+
+/**
+ * `secret: true` combined with `visibility: 'public'` is always a mistake — a
+ * secret exposed to the browser is a leak, not a config choice — so it is
+ * rejected at the type level rather than only at runtime. `defineEnv` applies
+ * this to `envSchema`, so passing this combination is a compile error.
+ */
+export type RejectSecretPublic<F> = F extends { secret: true; visibility: 'public' }
+  ? { __envkit_error: 'a field cannot be both `secret: true` and `visibility: "public"`' }
+  : F
 
 // ── Computed field definitions ────────────────────────────────────────────────
 
@@ -106,8 +128,18 @@ type InferFieldType<F extends EnvFieldDef<any>> =
     ? InferRawType<F>
     : InferRawType<F> | undefined
 
+/** Shape of `serverEnv` — every declared field, server or public. */
 export type InferEnvSchema<S extends Record<string, EnvFieldDef<any>>> = {
   readonly [K in keyof S]: InferFieldType<S[K]>
+}
+
+type PublicKeys<S extends Record<string, EnvFieldDef<any>>> = {
+  [K in keyof S]: S[K] extends { visibility: 'public' } ? K : never
+}[keyof S]
+
+/** Shape of `publicEnv` — only fields declared with `visibility: 'public'`. */
+export type InferPublicEnvSchema<S extends Record<string, EnvFieldDef<any>>> = {
+  readonly [K in PublicKeys<S>]: InferFieldType<S[K]>
 }
 
 // ── Config and instance types ─────────────────────────────────────────────────
@@ -124,6 +156,17 @@ export interface EnvKitConfig<
   computed?: C
 }
 
+/** The env, split by where it's safe to read from. See `EnvVisibility`. */
+export interface LoadedEnv<
+  S extends Record<string, EnvFieldDef<any>>,
+  C extends Record<string, ComputedFieldDef<any>>
+> {
+  /** Every declared field, plus computed values. Throws if read from a browser context. */
+  serverEnv: InferEnvSchema<S> & InferComputedSchema<C>
+  /** Only fields declared `visibility: 'public'`. Safe to import into client-bundled code. */
+  publicEnv: InferPublicEnvSchema<S>
+}
+
 export interface EnvKitInstance<
   G extends EnvGroupDef[],
   S extends Record<string, EnvFieldDef<G[number]['slug']>>,
@@ -133,8 +176,8 @@ export interface EnvKitInstance<
   readonly groups: G
   readonly source: import('./sources.js').EnvSource
   readonly computed: C
-  /** Validates all variables, runs computed fields, returns the fully typed env. Throws on error. */
-  load(): InferEnvSchema<S> & InferComputedSchema<C>
+  /** Validates all variables, runs computed fields, returns `{ serverEnv, publicEnv }`. Throws on error. */
+  load(): LoadedEnv<S, C>
 }
 
 // ── Validation result ─────────────────────────────────────────────────────────

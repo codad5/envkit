@@ -78,7 +78,8 @@ withConfig(program.command('diff'))
     try {
       const configPath = resolveConfigPath(opts.config)
       const loaded = await loadConfig(configPath)
-      await runDiff(loaded)
+      const ok = await runDiff(loaded)
+      if (!ok) process.exit(1)
     } catch (err: any) {
       console.error(err.message)
       process.exit(1)

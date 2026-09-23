@@ -4,7 +4,8 @@ import type { LoadedConfig } from '../config-loader'
 import type { EnvFieldDef } from 'envkit-core'
 import { fmt } from '../utils/format'
 
-export async function runDiff(loaded: LoadedConfig): Promise<void> {
+/** Returns false when Missing or Invalid entries are found, so callers can exit non-zero. */
+export async function runDiff(loaded: LoadedConfig): Promise<boolean> {
   const { instance } = loaded
   const schema = instance.schema as Record<string, EnvFieldDef<string>>
   const source = instance.source
@@ -48,7 +49,7 @@ export async function runDiff(loaded: LoadedConfig): Promise<void> {
   if (missing.length === 0 && extra.length === 0 && invalid.length === 0) {
     console.log(fmt.success('No diff â€” .env matches schema perfectly.'))
     console.log()
-    return
+    return true
   }
 
   if (missing.length > 0) {
@@ -74,4 +75,7 @@ export async function runDiff(loaded: LoadedConfig): Promise<void> {
     }
     console.log()
   }
+
+  // Extra (unknown) keys are a warning, not a failure — only Missing/Invalid gate CI.
+  return missing.length === 0 && invalid.length === 0
 }
