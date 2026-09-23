@@ -16,7 +16,9 @@ const program = new Command()
 program
   .name('envkit')
   .description('Typed environment variable management')
-  .version('0.1.0')
+  // Keep in sync with packages/cli/package.json's "version" on every release —
+  // this was stuck at 0.1.0 through several releases before this bump.
+  .version('0.3.0')
 
 // Shared --config option helper
 function withConfig(cmd: Command): Command {

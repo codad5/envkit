@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-23
+
 ### Added
 - `visibility: 'server' | 'public'` field option (default `'server'`) — `config.load()` now returns `{ serverEnv, publicEnv }` instead of a flat env object. `serverEnv` carries every field and throws on read once `typeof window !== 'undefined'`; `publicEnv` carries only `visibility: 'public'` fields and is safe to import into client-bundled code (Next.js/Vite/etc.)
 - `secret: true` combined with `visibility: 'public'` is now rejected both at compile time (TypeScript) and at `defineEnv()` call time (plain JS) — that combination is always a mistake
@@ -104,7 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Computed callback `env` parameter was typed as `any` — now fully inferred from schema
 - Inline enum `string[]` fields now support literal union inference with `as const`
 
-[Unreleased]: https://github.com/codad5/envkit/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/codad5/envkit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/codad5/envkit/compare/v0.2.2...v0.3.0
 [0.2.1]: https://github.com/codad5/envkit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/codad5/envkit/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/codad5/envkit/compare/v0.1.0...v0.1.1
