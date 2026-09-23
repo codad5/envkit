@@ -5,7 +5,13 @@ import { tmpdir } from 'os'
 import { resolveConfigPath } from '../config-loader'
 
 function tmpDir() {
-  const dir = join(tmpdir(), 'envkit-cli-test-' + Date.now())
+  // Date.now() alone can collide between two tests run within the same
+  // millisecond on a fast CI runner — mkdirSync's recursive:true then
+  // silently reuses the earlier test's directory (and its leftover files)
+  // instead of erroring, causing order-dependent flakiness (e.g. "throws
+  // when config file not found" intermittently finding another test's
+  // envkit.config.ts). A random suffix makes each call's directory unique.
+  const dir = join(tmpdir(), 'envkit-cli-test-' + Date.now() + '-' + Math.random().toString(36).slice(2))
   mkdirSync(dir, { recursive: true })
   return dir
 }
